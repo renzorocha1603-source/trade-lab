@@ -1,8 +1,7 @@
 """
 Trade Lab Dashboard — Professional yet simple enough for anyone.
-Shows: Your Money, Today's Activity, AI Accuracy, Positions, Fees.
+Password-protected. Shows: Your Money, Activity, AI Accuracy, Positions, Fees.
 Run: streamlit run dashboard/app.py
-Reads logs from GitHub for 24/7 access anywhere.
 """
 
 import streamlit as st
@@ -55,8 +54,82 @@ st.markdown("""
         color: #b58a00;
         margin-top: 6px;
     }
+    .login-container {
+        max-width: 420px;
+        margin: 80px auto;
+        text-align: center;
+    }
+    .login-card {
+        background: rgba(127,127,127,0.06);
+        border: 1px solid rgba(127,127,127,0.15);
+        border-radius: 16px;
+        padding: 40px 32px;
+    }
+    .login-logo {
+        font-size: 56px;
+        margin-bottom: 8px;
+    }
+    .login-title {
+        font-size: 24px;
+        font-weight: 700;
+        margin-bottom: 4px;
+    }
+    .login-subtitle {
+        font-size: 14px;
+        color: #9aa0a6;
+        margin-bottom: 28px;
+    }
 </style>
 """, unsafe_allow_html=True)
+
+# ==================== AUTHENTICATION ====================
+
+if "authenticated" not in st.session_state:
+    st.session_state.authenticated = False
+
+if not st.session_state.authenticated:
+    # Empty columns to center the login
+    c1, c2, c3 = st.columns([1, 1.5, 1])
+    with c2:
+        st.markdown("""
+        <div class="login-card">
+            <div class="login-logo">🤖</div>
+            <div class="login-title">Trade Lab</div>
+            <div class="login-subtitle">Your AI-Powered Trading Assistant</div>
+        </div>
+        """, unsafe_allow_html=True)
+
+        password = st.text_input(
+            "Enter password to continue",
+            type="password",
+            placeholder="••••••••••••",
+            key="login_password"
+        )
+
+        col_btn1, col_btn2, col_btn3 = st.columns([1, 1, 1])
+        with col_btn2:
+            login_clicked = st.button("🔓 Unlock Dashboard", use_container_width=True)
+
+        if login_clicked:
+            if password == "Angelorea1$":
+                st.session_state.authenticated = True
+                st.rerun()
+            else:
+                st.error("Incorrect password. Please try again.")
+
+        st.divider()
+        st.caption("🔒 This dashboard contains private trading data.")
+        st.caption("Authorized access only.")
+
+    st.stop()
+
+# ==================== LOGGED IN — SHOW DASHBOARD ====================
+
+# Logout button in sidebar
+with st.sidebar:
+    if st.button("🚪 Logout"):
+        st.session_state.authenticated = False
+        st.rerun()
 
 # ==================== HELPERS ====================
 
@@ -77,11 +150,10 @@ def time_ago(ts_str):
         return f"{int(secs//86400)} day(s) ago"
     except: return ""
 
-# ==================== LOAD DATA FROM GITHUB ====================
+# ==================== LOAD DATA ====================
 
 @st.cache_data(ttl=60)
 def load_data():
-    # Pull latest logs from GitHub
     try:
         subprocess.run(["git", "pull", "origin", "main"], capture_output=True, timeout=10)
     except: pass
