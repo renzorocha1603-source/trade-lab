@@ -64,3 +64,42 @@
 2026-07-05 13:02:04,059 | INFO     | [SCHEDULE] Daily run at 16:30 EST
 2026-07-05 13:02:04,060 | INFO     | System LIVE. Ctrl+C to stop.
 
+2026-07-05 13:39:17,820 | INFO     | Data pipeline initialized | News sources: Finnhub, AlphaVantage, YahooFinance
+2026-07-05 13:39:17,822 | INFO     | DeepSeek Research: ONLINE (primary AI)
+2026-07-05 13:39:24,670 | INFO     | Psychology: DeepSeek (daily) + Claude Haiku (extreme events backup)
+2026-07-05 13:39:24,700 | INFO     | Loaded 1 snapshots
+2026-07-05 13:39:24,730 | INFO     | Loaded 1 trades
+2026-07-05 13:39:24,730 | INFO     | Loading historical data for 10 symbols...
+2026-07-05 13:39:25,725 | INFO     |   AAPL: 251 days loaded
+2026-07-05 13:39:25,902 | INFO     |   MSFT: 251 days loaded
+2026-07-05 13:39:26,114 | INFO     |   GOOGL: 251 days loaded
+2026-07-05 13:39:26,230 | INFO     |   AMZN: 251 days loaded
+2026-07-05 13:39:26,422 | INFO     |   NVDA: 251 days loaded
+2026-07-05 13:39:26,586 | INFO     |   META: 251 days loaded
+2026-07-05 13:39:26,762 | INFO     |   TSLA: 251 days loaded
+2026-07-05 13:39:26,972 | INFO     |   JPM: 251 days loaded
+2026-07-05 13:39:27,140 | INFO     |   V: 251 days loaded
+2026-07-05 13:39:27,388 | INFO     |   JNJ: 251 days loaded
+2026-07-05 13:39:27,389 | INFO     | Trade Lab initialized
+2026-07-05 13:39:27,396 | INFO     | Starting Trade Lab...
+2026-07-05 13:39:27,397 | INFO     | Capital: $100,000.00 CAD
+2026-07-05 13:39:27,398 | INFO     | Monthly deposit: $0.00 CAD
+2026-07-05 13:39:27,399 | INFO     | AI: DeepSeek (Primary) + Claude Haiku (Extreme Events Backup)
+2026-07-05 13:39:27,399 | INFO     | Schedule: Daily at 16:30 EST
+2026-07-05 13:39:27,400 | INFO     | Symbols: AAPL, MSFT, GOOGL, AMZN, NVDA, META, TSLA, JPM, V, JNJ
+2026-07-05 13:39:27,401 | INFO     | ============================================================
+2026-07-05 13:39:27,402 | INFO     | CYCLE #1 | 2026-07-05 13:39:27
+2026-07-05 13:39:27,403 | INFO     | ============================================================
+2026-07-05 13:39:28,659 | INFO     | FX rate (USD/CAD): 1.4200
+2026-07-05 13:39:28,667 | INFO     | USD/CAD: 1.4200
+2026-07-05 13:39:31,593 | INFO     | Equity: $100,000.00 CAD
+2026-07-05 13:39:34,122 | INFO     | News for NVDA: 10 articles | Avg freshness: 0.30/1.0
+2026-07-05 13:39:36,742 | INFO     | DeepSeek Research: NVDA | score=-0.15 | confidence=0.35 | The 10-day return of -4.80% is within 1.5 standard deviations of the 2.00% daily volatility, indicating no statistically significant deviation from normal price behavior, and the news set lacks direct NVDA-specific catalysts.
+2026-07-05 13:39:40,061 | INFO     | DeepSeek Psych: NVDA | bias=recency | crowd=panic_selling
+2026-07-05 13:39:40,086 | INFO     | Trade: BUY 36.14563185824633 NVDA @ $194.93 USD
+2026-07-05 13:39:40,089 | INFO     | [TRADE] BUY 36.1456 NVDA @ $194.93 USD | Initial entry: -4.8% decline in 10 days | Claude: The -4.80% return over 10 days with 2.00% volatility triggers recency bias, where investors overweight the short-term drop and ignore the lack of direct negative NVDA news, leading to exaggerated selling pressure as the crowd extrapolates recent price action into a trend.
+2026-07-05 13:39:40,099 | INFO     | Cycle complete: 1 trades in 12.7s
+2026-07-05 13:39:40,101 | INFO     | Equity: $99,844.93 CAD | P&L: $-155.07 | FX Fees: $150.07
+2026-07-05 13:39:40,109 | INFO     | [SCHEDULE] Daily run at 16:30 EST
+2026-07-05 13:39:40,110 | INFO     | System LIVE. Ctrl+C to stop.
+

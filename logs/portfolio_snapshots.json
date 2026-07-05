@@ -18,5 +18,25 @@
         "unrealized_pnl_cad": -5.0
       }
     }
+  },
+  {
+    "timestamp": "2026-07-05T13:39:40.093948",
+    "equity_cad": 99844.93,
+    "cash_cad": 89844.93,
+    "total_pnl_cad": -155.07,
+    "total_pnl_pct": -0.16,
+    "fx_rate": 1.42,
+    "total_fx_fees_cad": 150.07,
+    "positions_count": 1,
+    "total_trades": 1,
+    "positions": {
+      "NVDA": {
+        "quantity": 36.1456,
+        "avg_cost_usd": 194.93,
+        "current_price_usd": 194.83,
+        "market_value_cad": 10000.0,
+        "unrealized_pnl_cad": -5.0
+      }
+    }
   }
 ]

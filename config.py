@@ -41,7 +41,7 @@ class RiskConfig:
     max_daily_loss_cad: float = 5000
     max_positions: int = 10
     emergency_stop_file: str = "EMERGENCY_STOP"
-    require_market_open: bool = False  # Set to True for live, False for testing
+    require_market_open: bool = False
 
 @dataclass
 class ScheduleConfig:
@@ -66,6 +66,15 @@ class DataConfig:
     benchmark: str = "SPY"
 
 @dataclass
+class NewsConfig:
+    """Multi-source news configuration"""
+    finnhub_api_key: str = field(default_factory=lambda: os.getenv("FINNHUB_API_KEY", ""))
+    alpha_vantage_api_key: str = field(default_factory=lambda: os.getenv("ALPHA_VANTAGE_API_KEY", ""))
+    max_news_age_minutes: int = 30
+    freshness_decay_enabled: bool = True
+    min_confidence_for_stale_news: float = 0.3
+
+@dataclass
 class Config:
     deepseek: DeepSeekConfig = field(default_factory=DeepSeekConfig)
     claude: ClaudeConfig = field(default_factory=ClaudeConfig)
@@ -74,7 +83,8 @@ class Config:
     schedule: ScheduleConfig = field(default_factory=ScheduleConfig)
     broker: BrokerConfig = field(default_factory=BrokerConfig)
     data: DataConfig = field(default_factory=DataConfig)
+    news: NewsConfig = field(default_factory=NewsConfig)
     use_ai: bool = True
-    use_claude_for_extremes: bool = True  # Claude only for paradigm shifts/capitulation
+    use_claude_for_extremes: bool = True
     debug_mode: bool = False
     log_level: str = "INFO"
