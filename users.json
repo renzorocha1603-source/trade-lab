@@ -1,0 +1,48 @@
+{
+  "users": [
+    {
+      "id": "renzochiara",
+      "password": "Angelorea1$",
+      "name": "Renzo",
+      "role": "admin",
+      "created": "2026-07-05",
+      "scenarios": [
+        {
+          "id": "starter_500",
+          "name": "Starter $500",
+          "starting_capital_cad": 500,
+          "monthly_deposit_cad": 0,
+          "risk_profile": "conservative"
+        },
+        {
+          "id": "basic_1k",
+          "name": "Basic $1K",
+          "starting_capital_cad": 1000,
+          "monthly_deposit_cad": 100,
+          "risk_profile": "balanced"
+        },
+        {
+          "id": "growth_2500",
+          "name": "Growth $2.5K",
+          "starting_capital_cad": 2500,
+          "monthly_deposit_cad": 250,
+          "risk_profile": "balanced"
+        },
+        {
+          "id": "pro_5k",
+          "name": "Pro $5K",
+          "starting_capital_cad": 5000,
+          "monthly_deposit_cad": 500,
+          "risk_profile": "balanced"
+        },
+        {
+          "id": "elite_10k",
+          "name": "Elite $10K",
+          "starting_capital_cad": 10000,
+          "monthly_deposit_cad": 500,
+          "risk_profile": "aggressive"
+        }
+      ]
+    }
+  ]
+}
