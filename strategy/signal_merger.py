@@ -9,7 +9,7 @@ from dataclasses import dataclass
 import logging
 
 from .five_ten_rule import StrategySignal, SignalAction
-from .gemini_research import ResearchSignal
+from .deepseek_research import ResearchSignal
 from .claude_psychology import PsychologySignal
 
 logger = logging.getLogger(__name__)

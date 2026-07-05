@@ -3,9 +3,9 @@
 TRADE LAB - Autonomous Trading System
 Real Data · Simulated Money · 5/10 Strategy + RSI Filter
 DeepSeek (Primary AI) + Claude Haiku (Extreme Events)
-Finnhub + Alpha Vantage + Yahoo (Triple Data Source)
+Finnhub + Alpha Vantage + Coinbase + Yahoo (Multi-Source)
 Wealthsimple Fees · CAD Base · 24/7 Market-Hours Loop
-Multi-Scenario Simulator — Same AI, Different Account Sizes
+Multi-Scenario Simulator · Smarter AI with Technicals + Macro
 Auto-pushes logs to GitHub for dashboard sync
 """
 
@@ -22,7 +22,7 @@ from config import Config
 from data.pipeline import DataPipeline
 from broker.paper_broker import PaperBroker
 from strategy.five_ten_rule import FiveTenStrategy, SignalAction
-from strategy.gemini_research import DeepSeekResearch
+from strategy.deepseek_research import DeepSeekResearch
 from strategy.claude_psychology import ClaudePsychology
 from strategy.signal_merger import SignalMerger
 from risk.manager import RiskManager
@@ -40,9 +40,9 @@ BANNER = """
 ╔══════════════════════════════════════════════════════╗
 ║         TRADE LAB - 24/7 Autonomous Trading        ║
 ║    5/10 Strategy + RSI · DeepSeek + Claude Haiku   ║
-║    Finnhub + Alpha Vantage + Yahoo (Triple Data)   ║
+║    Finnhub + Alpha Vantage + Coinbase + Yahoo      ║
 ║       Wealthsimple Fees · CAD · Paper Trading      ║
-║          Multi-Scenario Simulator Active           ║
+║     Multi-Scenario · Smarter AI · 37 Symbols       ║
 ╚══════════════════════════════════════════════════════╝
 """
 
@@ -62,7 +62,8 @@ class TradeLab:
         self.data.load_historical_data()
         self.cycle_count = 0
         self.last_news_scan = None
-        logger.info("Trade Lab initialized | 24/7 Mode | Multi-Scenario Active")
+        self.last_tier3_scan = None
+        logger.info("Trade Lab initialized | 24/7 | 37 Symbols | Multi-Scenario | Smarter AI")
 
     # ==================== MARKET HOURS ====================
 
@@ -80,7 +81,34 @@ class TradeLab:
         market_close = (hour < 20 or (hour == 20 and minute == 0))
         return market_open and market_close
 
-    # ==================== RSI CALCULATION ====================
+    def get_symbol_tier(self, symbol: str) -> int:
+        """Get monitoring tier for a symbol"""
+        if symbol in ["SPY", "QQQ", "AAPL", "MSFT", "NVDA"]:
+            return 1
+        elif symbol in ["GOOGL", "AMZN", "META", "TSLA", "JPM", "V", "JNJ", "IWM", "DIA", "XLF", "XLK", "XLE"]:
+            return 2
+        else:
+            return 3
+
+    def should_scan_symbol(self, symbol: str) -> bool:
+        """Check if this symbol should be scanned in this cycle"""
+        tier = self.get_symbol_tier(symbol)
+        now = datetime.now()
+        if tier == 1:
+            return True
+        elif tier == 2:
+            return now.minute == 0
+        elif tier == 3:
+            if self.last_tier3_scan is None:
+                self.last_tier3_scan = now
+                return True
+            if (now - self.last_tier3_scan).seconds >= 14400:
+                self.last_tier3_scan = now
+                return True
+            return False
+        return True
+
+    # ==================== TECHNICAL INDICATORS ====================
 
     def calculate_rsi(self, prices, period: int = 14) -> float:
         if len(prices) < period + 1:
@@ -96,6 +124,58 @@ class TradeLab:
             return 100.0 - (100.0 / (1.0 + rs))
         except:
             return 50.0
+
+    def calculate_volume_trend(self, prices, volumes=None) -> str:
+        """Simple volume trend detection"""
+        if volumes is None or len(volumes) < 5:
+            return "normal"
+        try:
+            recent_avg = sum(volumes[-3:]) / 3
+            older_avg = sum(volumes[-6:-3]) / 3 if len(volumes) >= 6 else recent_avg
+            if recent_avg > older_avg * 1.3:
+                return "increasing"
+            elif recent_avg < older_avg * 0.7:
+                return "decreasing"
+        except:
+            pass
+        return "normal"
+
+    def calculate_ma_distance(self, prices) -> float:
+        """Distance from 50-day moving average in percent"""
+        if len(prices) < 50:
+            return 0.0
+        try:
+            import numpy as np
+            ma50 = np.mean(prices[-50:])
+            current = prices[-1]
+            return ((current - ma50) / ma50) * 100
+        except:
+            return 0.0
+
+    def get_macro_context(self) -> dict:
+        """Build macro context for AI"""
+        context = {"vix": "N/A", "usdcad": "N/A", "oil": "N/A", "sector": "neutral", "regime": "normal"}
+        try:
+            fx = self.data.get_usd_cad_rate()
+            context["usdcad"] = f"{fx:.4f}"
+        except: pass
+        try:
+            import yfinance as yf
+            vix = yf.Ticker("^VIX")
+            vix_hist = vix.history(period="5d")
+            if not vix_hist.empty:
+                vix_val = vix_hist['Close'].iloc[-1]
+                context["vix"] = f"{vix_val:.1f}"
+                if vix_val > 30: context["regime"] = "fear"
+                elif vix_val > 25: context["regime"] = "cautious"
+                elif vix_val < 15: context["regime"] = "complacent"
+                else: context["regime"] = "normal"
+            oil = yf.Ticker("CL=F")
+            oil_hist = oil.history(period="5d")
+            if not oil_hist.empty:
+                context["oil"] = f"{oil_hist['Close'].iloc[-1]:.2f}"
+        except: pass
+        return context
 
     # ==================== TRADING CYCLE ====================
 
@@ -118,7 +198,7 @@ class TradeLab:
 
             prices = self.data.get_live_prices()
             if not prices:
-                logger.warning("No prices available — data sources may be rate-limited")
+                logger.warning("No prices available")
                 return
 
             equity = self.broker.get_equity_cad(prices)
@@ -133,10 +213,13 @@ class TradeLab:
                 return
 
             self.data.check_prediction_outcomes(prices)
-
+            macro_context = self.get_macro_context()
             trades_made = 0
 
             for symbol in self.config.data.symbols:
+                if not self.should_scan_symbol(symbol):
+                    continue
+
                 hist = self.data._price_cache.get(symbol)
                 if hist is None or len(hist) < self.config.strategy.lookback_days + 1:
                     continue
@@ -149,12 +232,16 @@ class TradeLab:
                 if base_signal.action == SignalAction.HOLD:
                     continue
 
+                # Calculate technicals
+                rsi = self.calculate_rsi(hist.values)
+                volume_trend = self.calculate_volume_trend(hist.values)
+                ma_distance = self.calculate_ma_distance(hist.values)
+
                 if base_signal.action == SignalAction.BUY:
-                    rsi = self.calculate_rsi(hist.values)
                     if rsi > 40:
-                        logger.info(f"RSI filter: {symbol} RSI={rsi:.1f} > 40, skipping buy")
+                        logger.info(f"RSI filter: {symbol} RSI={rsi:.1f} > 40, skipping")
                         continue
-                    logger.info(f"RSI OK: {symbol} RSI={rsi:.1f} — oversold, buying")
+                    logger.info(f"RSI OK: {symbol} RSI={rsi:.1f} | Vol: {volume_trend} | MA: {ma_distance:+.1f}%")
 
                 deepseek_signal = None
                 claude_signal = None
@@ -167,12 +254,16 @@ class TradeLab:
                     news_freshness = self.data.get_news_freshness_factor(news_items)
 
                     if self.deepseek:
-                        deepseek_signal = self.deepseek.analyze(symbol, price_change, headlines, volatility)
+                        deepseek_signal = self.deepseek.analyze(
+                            symbol, price_change, headlines, volatility,
+                            rsi=rsi, volume_trend=volume_trend, ma_distance=ma_distance,
+                            macro_context=macro_context
+                        )
 
-                    is_extreme = (abs(price_change) > 0.10) if price_change else False
+                    is_extreme = (abs(price_change) > 0.10)
                     if self.claude and is_extreme:
                         claude_signal = self.claude.analyze(symbol, price_change, headlines, volatility, is_extreme_event=True)
-                        logger.warning(f"EXTREME EVENT: {symbol} | Price change: {price_change:.1%} | Calling Claude Haiku")
+                        logger.warning(f"EXTREME: {symbol} | {price_change:.1%} | Claude called")
 
                 final = self.merger.merge(base_signal, deepseek_signal, claude_signal, current_qty)
 
@@ -180,7 +271,7 @@ class TradeLab:
                     continue
 
                 if not is_market and final.action == "BUY":
-                    logger.info(f"After-hours: skipping BUY {symbol} — market closed")
+                    logger.info(f"After-hours: skip BUY {symbol}")
                     continue
 
                 if final.action == "BUY":
@@ -201,13 +292,11 @@ class TradeLab:
                             self.data.record_prediction(symbol, "BUY", order.filled_price_usd,
                                 final.base_contribution, final.reason,
                                 news_freshness if 'news_freshness' in dir() else 0.5)
-                            logger.info(f"[TRADE] BUY {order.quantity:.4f} {symbol} @ ${order.filled_price_usd:.2f} USD")
+                            logger.info(f"[TRADE] BUY {order.quantity:.4f} {symbol} @ ${order.filled_price_usd:.2f}")
 
-                            # Execute same trade in all scenarios
                             for sid in self.scenario_runner.results:
                                 self.scenario_runner.execute_trade_for_scenario(
-                                    sid, symbol, "buy", order.quantity, order.filled_price_usd, prices
-                                )
+                                    sid, symbol, "buy", order.quantity, order.filled_price_usd, prices)
 
                 elif final.action == "SELL" and current_qty > 0:
                     qty = max(0.0001, current_qty * final.quantity_pct)
@@ -217,21 +306,18 @@ class TradeLab:
                         self.tracker.record_trade(symbol, "SELL", order.quantity,
                             order.filled_price_usd, final.reason, final.ai_modified,
                             fx_rate, order.fx_fee_cad)
-                        logger.info(f"[TRADE] SELL {order.quantity:.4f} {symbol} @ ${order.filled_price_usd:.2f} USD")
+                        logger.info(f"[TRADE] SELL {order.quantity:.4f} {symbol} @ ${order.filled_price_usd:.2f}")
 
-                        # Execute same trade in all scenarios
                         for sid in self.scenario_runner.results:
                             self.scenario_runner.execute_trade_for_scenario(
-                                sid, symbol, "sell", order.quantity, order.filled_price_usd, prices
-                            )
+                                sid, symbol, "sell", order.quantity, order.filled_price_usd, prices)
 
             summary = self.broker.get_portfolio_summary(prices)
             self.tracker.record_snapshot(summary)
 
             duration = (datetime.now() - start).total_seconds()
-            logger.info(f"Cycle: {trades_made} trades | {duration:.1f}s | Equity: ${summary['equity_cad']:,.2f} CAD")
+            logger.info(f"Cycle: {trades_made} trades | {duration:.1f}s | Equity: ${summary['equity_cad']:,.2f}")
 
-            # Daily report at 4:30 PM EST
             if datetime.now().hour == 20 and datetime.now().minute >= 30:
                 self.tracker.print_report()
                 self.data.print_accuracy_report()
@@ -240,7 +326,6 @@ class TradeLab:
         except Exception as e:
             logger.error(f"Cycle error: {e}", exc_info=True)
 
-        # Auto-push logs to GitHub so dashboard stays updated
         self.push_logs_to_github()
 
     # ==================== NEWS MONITORING ====================
@@ -250,33 +335,25 @@ class TradeLab:
         if self.last_news_scan and (now - self.last_news_scan).seconds < 900:
             return
         self.last_news_scan = now
-        logger.debug(f"News scan: {now.strftime('%H:%M')}")
-        for symbol in self.config.data.symbols[:3]:
+        for symbol in self.config.data.symbols[:5]:
             try:
                 news = self.data.get_news(symbol, max_items=3)
                 if news and news[0].get("freshness_score", 0) > 0.8:
                     logger.info(f"BREAKING: {symbol} — {news[0]['title'][:100]}")
-            except:
-                pass
+            except: pass
 
-    # ==================== GIT PUSH LOGS ====================
+    # ==================== GIT PUSH ====================
 
     def push_logs_to_github(self):
-        """Auto-push log files to GitHub so the dashboard always has fresh data"""
         try:
             import subprocess
-            subprocess.run(["git", "config", "user.email", "bot@tradelab.com"],
-                         capture_output=True, timeout=5)
-            subprocess.run(["git", "config", "user.name", "TradeLab Bot"],
-                         capture_output=True, timeout=5)
+            subprocess.run(["git", "config", "user.email", "bot@tradelab.com"], capture_output=True, timeout=5)
+            subprocess.run(["git", "config", "user.name", "TradeLab Bot"], capture_output=True, timeout=5)
             subprocess.run(["git", "add", "logs/"], capture_output=True, timeout=10)
-            result = subprocess.run(["git", "commit", "-m", "Auto-update logs [bot]"],
-                                  capture_output=True, timeout=10)
+            result = subprocess.run(["git", "commit", "-m", "Auto-update logs [bot]"], capture_output=True, timeout=10)
             if "nothing to commit" not in result.stdout.decode() and "nothing to commit" not in result.stderr.decode():
                 subprocess.run(["git", "push"], capture_output=True, timeout=15)
-                logger.debug("Logs pushed to GitHub")
-        except Exception as e:
-            logger.debug(f"Git push skipped (non-critical): {e}")
+        except: pass
 
     # ==================== LIQUIDATE ====================
 
@@ -292,12 +369,11 @@ class TradeLab:
         self.running = True
         print(BANNER)
         logger.info(f"Capital: ${self.config.broker.initial_capital_cad:,.2f} CAD")
-        logger.info(f"Monthly deposit: ${self.config.broker.monthly_deposit_cad:,.2f} CAD")
-        logger.info(f"AI: DeepSeek (Primary) + Claude Haiku (Extreme Events)")
-        logger.info(f"Data: Finnhub → Alpha Vantage → Yahoo (triple redundancy)")
-        logger.info(f"Market: {'OPEN' if self.is_market_open() else 'CLOSED'}")
-        logger.info(f"Symbols: {', '.join(self.config.data.symbols)}")
+        logger.info(f"AI: DeepSeek (Primary + Technicals) + Claude Haiku (Extreme)")
+        logger.info(f"Data: Finnhub + Alpha Vantage + Coinbase + Yahoo")
+        logger.info(f"Symbols: {len(self.config.data.symbols)} (Tier 1:5, Tier 2:12, Tier 3:20)")
         logger.info(f"Scenarios: {len(self.scenario_runner.scenarios)} active")
+        logger.info(f"Market: {'OPEN' if self.is_market_open() else 'CLOSED'}")
         logger.info("24/7 Loop starting...\n")
 
         self.run_cycle()
