@@ -1,0 +1,39 @@
+{
+  "scenarios": [
+    {
+      "id": "starter_200",
+      "name": "Starter - $200",
+      "starting_capital_cad": 200,
+      "monthly_deposit_cad": 0,
+      "description": "Minimum test — can the AI grow a tiny account?"
+    },
+    {
+      "id": "basic_1k_250",
+      "name": "Basic - $1,000 + $250/month",
+      "starting_capital_cad": 1000,
+      "monthly_deposit_cad": 250,
+      "description": "Small investor adding monthly"
+    },
+    {
+      "id": "growth_5k_500",
+      "name": "Growth - $5,000 + $500/month",
+      "starting_capital_cad": 5000,
+      "monthly_deposit_cad": 500,
+      "description": "Serious individual investor"
+    },
+    {
+      "id": "serious_10k",
+      "name": "Serious - $10,000",
+      "starting_capital_cad": 10000,
+      "monthly_deposit_cad": 0,
+      "description": "Lump sum investor"
+    },
+    {
+      "id": "pro_100k_1k",
+      "name": "Pro - $100,000 + $1,000/month",
+      "starting_capital_cad": 100000,
+      "monthly_deposit_cad": 1000,
+      "description": "Professional / institutional test"
+    }
+  ]
+}
