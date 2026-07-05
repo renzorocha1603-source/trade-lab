@@ -1,6 +1,7 @@
 """
 Trade Lab Dashboard v2.2 — Password-protected, 5 scenarios with risk selection.
 Each scenario can choose Conservative, Balanced, or Aggressive.
+Designed for anyone to understand — no finance degree needed.
 """
 
 import streamlit as st
@@ -24,6 +25,7 @@ st.markdown("""
     .disclaimer-box { background: rgba(255,193,7,0.08); border: 1px solid rgba(255,193,7,0.35); border-radius: 10px; padding: 10px 14px; font-size: 12.5px; color: #b58a00; margin-top: 6px; }
     .scenario-card { background: rgba(127,127,127,0.04); border: 1px solid rgba(127,127,127,0.1); border-radius: 12px; padding: 14px; text-align: center; margin-bottom: 8px; }
     .login-card { background: rgba(127,127,127,0.06); border: 1px solid rgba(127,127,127,0.15); border-radius: 16px; padding: 40px 32px; text-align: center; margin-top: 80px; }
+    .tip-box { background: rgba(66,133,244,0.08); border: 1px solid rgba(66,133,244,0.2); border-radius: 8px; padding: 10px 14px; font-size: 13px; margin: 8px 0; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -84,7 +86,7 @@ def save_scenarios_to_github(scenarios_data):
         subprocess.run(["git", "commit", "-m", "Update risk profiles from dashboard"], capture_output=True, timeout=5)
         subprocess.run(["git", "push"], capture_output=True, timeout=10)
         return True
-    except Exception as e:
+    except:
         return False
 
 @st.cache_data(ttl=60)
@@ -117,7 +119,7 @@ def load_data():
 
 snapshots, trades, accuracy, scenarios, scenarios_config = load_data()
 
-# ==================== SIDEBAR ====================
+# ==================== SIDEBAR — Everything Explained ====================
 
 with st.sidebar:
     if st.button("🚪 Logout", use_container_width=True):
@@ -128,13 +130,60 @@ with st.sidebar:
     st.caption("Your AI-powered trading assistant")
     st.divider()
 
-    st.markdown("**Risk Profiles**")
-    st.write("- 🛡️ **Conservative**: 2-7 trades/week, low risk")
-    st.write("- ⚖️ **Balanced**: 10-20 trades/week, medium risk")
-    st.write("- 🚀 **Aggressive**: Daily trades, 5/10 rule only")
+    st.markdown("**📖 How to read this page**")
+    st.write(
+        "- 🧪 **Top cards** = 5 test accounts running at the same time\n"
+        "- 💰 **Green number** = how much money is in each account\n"
+        "- 📈 **Percentage** = how much you've made (or lost) so far\n"
+        "- 📋 **Activity** = every buy and sell, explained in simple words"
+    )
 
     st.divider()
-    st.markdown('<div class="disclaimer-box">⚠️ Paper trading simulation. Not financial advice.</div>', unsafe_allow_html=True)
+
+    st.markdown("**🛡️ What the risk levels mean**")
+    st.write(
+        "**🛡️ Conservative (Safest):**\n"
+        "- Makes 2-7 trades per week\n"
+        "- Very picky about what to buy\n"
+        "- Keeps 20% cash just in case\n"
+        "- Only buys Canadian stocks & crypto\n"
+        "- Best for: $500 account\n\n"
+        "**⚖️ Balanced (Middle ground):**\n"
+        "- Makes 10-20 trades per week\n"
+        "- Uses smart filters to avoid bad buys\n"
+        "- Keeps 10% cash in reserve\n"
+        "- Buys US, Canadian, and crypto\n"
+        "- Best for: $1,000 - $5,000 accounts\n\n"
+        "**🚀 Aggressive (Most active):**\n"
+        "- Trades whenever there's an opportunity\n"
+        "- Uses only the basic 5/10 rule\n"
+        "- Keeps 5% cash\n"
+        "- Buys everything\n"
+        "- Best for: $10,000 account"
+    )
+
+    st.divider()
+
+    st.markdown("**⏰ When does it trade?**")
+    st.write(
+        "- Monday to Friday only\n"
+        "- 9:30 AM to 4:00 PM (New York time)\n"
+        "- Checks prices every 15 minutes\n"
+        "- Weekends: watches news but doesn't trade"
+    )
+
+    st.divider()
+
+    st.markdown("**💡 Tips**")
+    st.write(
+        "- The AI explains WHY it made each trade — click the arrow to read it\n"
+        "- You can change any account's risk level anytime — it updates within 15 minutes\n"
+        "- Download your trade history as a spreadsheet anytime\n"
+        "- This is fake money for testing — no real dollars are used"
+    )
+
+    st.divider()
+    st.markdown('<div class="disclaimer-box">⚠️ This is a paper trading simulation. No real money is used. Nothing here is financial advice. Past results do not guarantee future performance.</div>', unsafe_allow_html=True)
 
 # ==================== NO DATA YET ====================
 
@@ -143,67 +192,92 @@ if not scenarios and not snapshots:
     st.info("""
     ### Your AI Trading Assistant is setting up...
 
-    This dashboard will show:
-    - 🧪 **5 scenarios** with different risk levels
-    - 💰 **Real-time equity** for each account size
-    - 📊 **Every trade** and why it was made
+    Soon you'll see:
+    - 🧪 **5 test accounts** running side by side
+    - 💰 **How much each one has** in real time
+    - 📋 **Every trade explained** in plain English
 
-    *Check back after the first trading cycle completes.*
+    *Check back after the first trading cycle — usually within 15 minutes during market hours.*
     """)
     st.stop()
 
 # ==================== HEADER ====================
 
-st.title("🤖 Trade Lab")
-st.caption("Multi-Scenario AI Trading — Conservative · Balanced · Aggressive")
+col1, col2 = st.columns([3, 1])
+with col1:
+    st.title("🤖 Trade Lab")
+    st.caption("5 accounts. 3 risk levels. 1 AI running them all.")
+with col2:
+    st.markdown('<span class="status-pill-green">🟢 Live</span>', unsafe_allow_html=True)
+    st.caption(f"Updated: {datetime.now().strftime('%b %d, %I:%M %p')}")
+
+# ==================== WHAT IS THIS? ====================
+
+with st.expander("🤔 What am I looking at?", expanded=False):
+    st.markdown("""
+    ### Welcome to your AI Trading Lab!
+    
+    **In plain English, here's what's happening:**
+    
+    - You have **5 virtual accounts** with different amounts of play money ($500, $1,000, $2,500, $5,000, $10,000)
+    - An **AI brain** watches the stock market 24/7 and decides when to buy and sell
+    - Each account has a **risk level** you can change (Conservative = careful, Balanced = middle, Aggressive = bold)
+    - Every trade is **explained in simple words** — click any trade to see why the AI did it
+    - This is **practice money only** — great for testing before using real dollars
+    
+    **The goal:** Find which combination of account size and risk level works best!
+    """)
 
 st.divider()
 
 # ==================== SCENARIO SIMULATOR WITH RISK SELECTION ====================
 
-st.markdown('<p class="section-title">🧪 Scenario Simulator</p>', unsafe_allow_html=True)
-st.markdown('<p class="explanation">Each scenario runs independently with its own risk profile. Change the risk level anytime — it updates on the next trading cycle.</p>', unsafe_allow_html=True)
+st.markdown('<p class="section-title">🧪 Your 5 Test Accounts</p>', unsafe_allow_html=True)
+st.markdown('<p class="section-subtitle">Each account runs independently with its own risk level. Change the risk anytime — it updates within 15 minutes.</p>', unsafe_allow_html=True)
 
-# Build scenario cards
+# Build latest scenario data
 latest_scenarios = {}
 for s in scenarios:
     sid = s.get("scenario_id", "unknown")
     if sid not in latest_scenarios or s.get("timestamp", "") > latest_scenarios[sid].get("timestamp", ""):
         latest_scenarios[sid] = s
 
-# Risk profile options
 risk_options = ["conservative", "balanced", "aggressive"]
 risk_emoji = {"conservative": "🛡️", "balanced": "⚖️", "aggressive": "🚀"}
+risk_explanations = {
+    "conservative": "Safest — few trades, strict filters",
+    "balanced": "Middle — regular trades, smart filters",
+    "aggressive": "Bold — many trades, basic rules only"
+}
 
-# Get scenario configs for risk selection
 config_map = {}
 for sc in scenarios_config:
     config_map[sc["id"]] = sc
 
-# Display scenario cards in a row
 if scenarios_config:
     cols = st.columns(len(scenarios_config))
     for i, sc in enumerate(scenarios_config):
         sid = sc["id"]
         with cols[i]:
-            # Risk profile selector
             current_risk = sc.get("risk_profile", "balanced")
+            
+            # Risk selector with label
+            st.caption(f"**{sc['name']}**")
             new_risk = st.selectbox(
-                f"{risk_emoji.get(current_risk, '')} Risk",
+                "Risk level",
                 risk_options,
                 index=risk_options.index(current_risk) if current_risk in risk_options else 1,
                 key=f"risk_{sid}",
-                label_visibility="collapsed"
+                format_func=lambda x: f"{risk_emoji.get(x, '')} {x.title()}",
+                help=risk_explanations.get(current_risk, "")
             )
 
-            # If changed, update scenarios.json
             if new_risk != current_risk:
                 sc["risk_profile"] = new_risk
                 if save_scenarios_to_github(scenarios_config):
-                    st.success(f"Updated to {new_risk}!")
+                    st.success(f"✅ Changed to {new_risk}!")
                     st.rerun()
 
-            # Show equity
             data = latest_scenarios.get(sid, {})
             equity = data.get("equity_cad", sc.get("starting_capital_cad", 0))
             capital = data.get("starting_capital", sc.get("starting_capital_cad", 0))
@@ -213,60 +287,108 @@ if scenarios_config:
 
             st.markdown(f"""
             <div class="scenario-card">
-                <b>{sc['name']}</b><br>
-                <small style="color:#888;">{risk_emoji.get(current_risk, '')} {current_risk.title()}</small>
-                <h4 style="color:{c};margin:4px 0;">{fmt_money(equity)}</h4>
+                <b>{fmt_money(capital)}</b> starting<br>
+                <h3 style="color:{c};margin:6px 0;">{fmt_money(equity)}</h3>
                 <small>{"↑" if pnl_s >= 0 else "↓"} {fmt_money(pnl_s)} ({pnl_pct_s:+.2f}%)</small><br>
-                <small>Trades: {data.get('trades', 0)} | Pos: {data.get('positions', 0)}</small>
+                <small>📊 {data.get('trades', 0)} trades | 📦 {data.get('positions', 0)} holdings</small><br>
+                <small style="color:#888;">{risk_emoji.get(current_risk, '')} {current_risk.title()}</small>
             </div>
             """, unsafe_allow_html=True)
 
-    st.caption("💡 Change any scenario's risk level above — the bot updates on the next cycle (~15 min during market hours).")
+    st.caption("💡 **Tip:** Click the dropdown above any account to change its risk level. The change takes effect on the next trading cycle (within 15 minutes during market hours).")
+
 else:
-    st.info("Scenario configuration loading...")
+    st.info("Loading account configurations...")
 
 st.divider()
 
 # ==================== RECENT TRADES ====================
 
 st.markdown('<p class="section-title">📋 Recent Activity</p>', unsafe_allow_html=True)
+st.markdown('<p class="explanation">Every trade the AI made, explained in plain English. Click any trade to see why it happened.</p>', unsafe_allow_html=True)
 
 if trades:
     df_t = pd.DataFrame(trades)
     if 'timestamp' in df_t.columns:
         df_t['timestamp'] = pd.to_datetime(df_t['timestamp'])
         df_t = df_t.sort_values('timestamp', ascending=False)
-        filt = st.radio("Show", ["All", "Buys", "Sells"], horizontal=True, label_visibility="collapsed")
-        if filt == "Buys": df_t = df_t[df_t['action'] == "BUY"]
-        elif filt == "Sells": df_t = df_t[df_t['action'] == "SELL"]
-        for _, r in df_t.head(20).iterrows():
-            emoji = "🟢" if r.get('action') == "BUY" else "🔴"
-            ai = " 🤖 AI" if r.get('ai_modified') else ""
-            with st.expander(f"{emoji} {r.get('action')} {r.get('quantity', 0):.4f} {r.get('symbol')} @ ${r.get('price_usd', 0):.2f}{ai}"):
-                st.write(f"**When:** {r.get('timestamp')} ({time_ago(r.get('timestamp'))})")
-                st.write(f"**Why:** {r.get('reason', 'No reason logged')[:300]}")
-                if r.get('fees_cad', 0) > 0: st.write(f"**Fee:** ${r['fees_cad']:.2f} CAD")
+        
+        filt = st.radio("Show:", ["All trades", "Buys only 📈", "Sells only 📉"], horizontal=True, label_visibility="collapsed")
+        if "Buys" in filt: df_t = df_t[df_t['action'] == "BUY"]
+        elif "Sells" in filt: df_t = df_t[df_t['action'] == "SELL"]
+        
+        for _, r in df_t.head(30).iterrows():
+            action = r.get('action', '')
+            symbol = r.get('symbol', '')
+            qty = r.get('quantity', 0)
+            price = r.get('price_usd', 0)
+            ai = r.get('ai_modified', False)
+            reason = r.get('reason', '')
+            fees = r.get('fees_cad', 0)
+            ts = r.get('timestamp', '')
+            
+            emoji = "🟢 Bought" if action == "BUY" else "🔴 Sold"
+            ai_tag = " (AI helped decide)" if ai else ""
+            
+            with st.expander(f"{emoji} {qty:.4f} shares of {symbol} at ${price:.2f} USD{ai_tag}"):
+                st.write(f"**When:** {ts} ({time_ago(ts)})")
+                if reason:
+                    st.write(f"**Why the AI did this:** {reason[:500]}")
+                else:
+                    st.write("**Why:** The 5/10 rule triggered — the stock moved enough to warrant a trade.")
+                if fees > 0:
+                    st.write(f"**Fee charged:** ${fees:.2f} CAD (This is Wealthsimple's 1.5% fee for converting Canadian to US dollars)")
+        
+        # Download button
+        csv = df_t.to_csv(index=False).encode("utf-8")
+        st.download_button(
+            "⬇️ Download all trades (Spreadsheet)",
+            data=csv,
+            file_name="my_trades.csv",
+            mime="text/csv",
+            help="Opens in Excel or Google Sheets — perfect for your own records."
+        )
 else:
-    st.info("No trades yet. Trades will appear when the market opens.")
+    st.info("No trades have happened yet. The AI is watching the market and waiting for the right moment. Trades will appear here automatically when the market opens.")
+    st.write("**What to expect:** When the AI finds a good opportunity, you'll see green (buy) or red (sell) entries here with explanations of why.")
 
 st.divider()
 
-# ==================== ABOUT ====================
+# ==================== HOW IT WORKS ====================
 
-st.markdown('<p class="section-title">🧠 About The AI</p>', unsafe_allow_html=True)
-st.markdown("""
-<div class="card">
-<b>How decisions are made:</b><br><br>
-1️⃣ <b>DeepSeek AI</b> scans news + technicals 24/7<br>
-2️⃣ <b>Claude AI</b> steps in for extreme events only<br>
-3️⃣ <b>5/10 Rule</b> — buy small on dips, sell on rallies<br>
-4️⃣ <b>Risk Profiles</b> — each scenario uses its own filters<br><br>
-<b>Conservative:</b> RSI + ATR + Sector Limits + 20% cash reserve<br>
-<b>Balanced:</b> RSI + Sector Limits + 10% cash reserve<br>
-<b>Aggressive:</b> 5/10 Rule only, 5% cash reserve<br><br>
-<i>Math rules make the final call. No impulsive decisions.</i>
-</div>
-""", unsafe_allow_html=True)
+st.markdown('<p class="section-title">🧠 How the AI Makes Decisions</p>', unsafe_allow_html=True)
+
+col_how1, col_how2 = st.columns(2)
+
+with col_how1:
+    st.markdown("""
+    <div class="card">
+    <b>📊 Step 1: Watch the Market</b><br><br>
+    The system monitors 31 different investments — US stocks, Canadian stocks, ETFs, and crypto — using 4 different data sources to get the most accurate prices and news.
+    </div>
+    """, unsafe_allow_html=True)
+    
+    st.markdown("""
+    <div class="card">
+    <b>🧮 Step 2: Do the Math</b><br><br>
+    The 5/10 Rule looks at the last 2 weeks. If something dropped more than 3%, it considers buying. If something rose more than 5%, it considers selling. Extra filters (RSI, ATR) make sure it's not catching a "falling knife" — buying something that keeps dropping.
+    </div>
+    """, unsafe_allow_html=True)
+
+with col_how2:
+    st.markdown("""
+    <div class="card">
+    <b>🧠 Step 3: Ask the AI</b><br><br>
+    DeepSeek AI reads the news and analyzes the numbers — like a tireless research analyst. For really big events, Claude AI double-checks as a second opinion. But the AI only advises — math rules make the final call.
+    </div>
+    """, unsafe_allow_html=True)
+    
+    st.markdown("""
+    <div class="card">
+    <b>✅ Step 4: Execute (or Don't)</b><br><br>
+    If all filters pass, the trade happens automatically. If any filter says no, the trade is skipped. This prevents impulse decisions and keeps the system disciplined.
+    </div>
+    """, unsafe_allow_html=True)
 
 st.divider()
-st.caption(f"Trade Lab v2.2 · 24/7 on Railway · {len(scenarios)} scenario snapshots · {len(trades)} trades · Paper trading only")
+st.caption(f"Trade Lab v2.2 · Running 24/7 on Railway · {len(scenarios)} scenario snapshots · {len(trades)} trades recorded · Paper trading simulation only")
