@@ -6,9 +6,10 @@ from typing import List
 load_dotenv()
 
 @dataclass
-class GeminiConfig:
-    api_key: str = field(default_factory=lambda: os.getenv("GEMINI_API_KEY", ""))
-    model_name: str = "gemini-2.0-flash"
+class DeepSeekConfig:
+    """DeepSeek - Primary AI for all daily analysis"""
+    api_key: str = field(default_factory=lambda: os.getenv("DEEPSEEK_API_KEY", ""))
+    model: str = "deepseek-chat"
     temperature: float = 0.3
     max_retries: int = 3
     cache_enabled: bool = True
@@ -17,10 +18,11 @@ class GeminiConfig:
 
 @dataclass
 class ClaudeConfig:
+    """Claude Haiku - Premium backup for extreme events only"""
     api_key: str = field(default_factory=lambda: os.getenv("CLAUDE_API_KEY", ""))
-    model_name: str = "claude-sonnet-4-20250514"
+    model_name: str = "claude-haiku-3-5-20241022"
     temperature: float = 0.3
-    max_retries: int = 3
+    max_retries: int = 2
     confidence_threshold: float = 0.6
 
 @dataclass
@@ -39,7 +41,7 @@ class RiskConfig:
     max_daily_loss_cad: float = 5000
     max_positions: int = 10
     emergency_stop_file: str = "EMERGENCY_STOP"
-    require_market_open: bool = True
+    require_market_open: bool = False  # Set to True for live, False for testing
 
 @dataclass
 class ScheduleConfig:
@@ -65,7 +67,7 @@ class DataConfig:
 
 @dataclass
 class Config:
-    gemini: GeminiConfig = field(default_factory=GeminiConfig)
+    deepseek: DeepSeekConfig = field(default_factory=DeepSeekConfig)
     claude: ClaudeConfig = field(default_factory=ClaudeConfig)
     strategy: StrategyConfig = field(default_factory=StrategyConfig)
     risk: RiskConfig = field(default_factory=RiskConfig)
@@ -73,4 +75,6 @@ class Config:
     broker: BrokerConfig = field(default_factory=BrokerConfig)
     data: DataConfig = field(default_factory=DataConfig)
     use_ai: bool = True
+    use_claude_for_extremes: bool = True  # Claude only for paradigm shifts/capitulation
     debug_mode: bool = False
+    log_level: str = "INFO"

@@ -1,0 +1,66 @@
+2026-07-05 12:49:55,199 | WARNING  | No DeepSeek API key configured
+2026-07-05 12:49:56,427 | INFO     | Claude Psychology initialized (model: claude-sonnet-4-20250514)
+2026-07-05 12:49:56,429 | INFO     | Loading historical data for 10 symbols...
+2026-07-05 12:50:04,270 | INFO     |   AAPL: 251 days loaded
+2026-07-05 12:50:04,596 | INFO     |   MSFT: 251 days loaded
+2026-07-05 12:50:04,893 | INFO     |   GOOGL: 251 days loaded
+2026-07-05 12:50:05,093 | INFO     |   AMZN: 251 days loaded
+2026-07-05 12:50:05,365 | INFO     |   NVDA: 251 days loaded
+2026-07-05 12:50:05,595 | INFO     |   META: 251 days loaded
+2026-07-05 12:50:05,795 | INFO     |   TSLA: 251 days loaded
+2026-07-05 12:50:06,128 | INFO     |   JPM: 251 days loaded
+2026-07-05 12:50:06,399 | INFO     |   V: 251 days loaded
+2026-07-05 12:50:06,859 | INFO     |   JNJ: 251 days loaded
+2026-07-05 12:50:06,860 | INFO     | Trade Lab initialized
+2026-07-05 12:50:06,867 | INFO     | Starting Trade Lab...
+2026-07-05 12:50:06,872 | INFO     | Capital: $100,000.00 CAD
+2026-07-05 12:50:06,873 | INFO     | Monthly deposit: $0.00 CAD
+2026-07-05 12:50:06,874 | INFO     | AI: Enabled (DeepSeek + Claude)
+2026-07-05 12:50:06,875 | INFO     | Schedule: Daily at 16:30 EST
+2026-07-05 12:50:06,875 | INFO     | Symbols: AAPL, MSFT, GOOGL, AMZN, NVDA, META, TSLA, JPM, V, JNJ
+2026-07-05 12:50:06,876 | INFO     | ============================================================
+2026-07-05 12:50:06,877 | INFO     | CYCLE #1 | 2026-07-05 12:50:06
+2026-07-05 12:50:06,877 | INFO     | ============================================================
+2026-07-05 12:50:08,446 | INFO     | FX rate (USD/CAD): 1.4200
+2026-07-05 12:50:08,452 | INFO     | USD/CAD: 1.4200
+2026-07-05 12:50:12,214 | INFO     | Equity: $100,000.00 CAD
+2026-07-05 12:50:12,216 | WARNING  | Risk check failed: Market closed
+2026-07-05 12:50:12,440 | INFO     | System LIVE. Ctrl+C to stop.
+
+2026-07-05 12:57:40,850 | INFO     | DeepSeek Research: ONLINE (primary AI)
+2026-07-05 12:57:46,762 | INFO     | Psychology: DeepSeek (daily) + Claude Haiku (extreme events backup)
+2026-07-05 13:01:45,423 | INFO     | DeepSeek Research: ONLINE (primary AI)
+2026-07-05 13:01:51,113 | INFO     | Psychology: DeepSeek (daily) + Claude Haiku (extreme events backup)
+2026-07-05 13:01:51,117 | INFO     | Loading historical data for 10 symbols...
+2026-07-05 13:01:52,041 | INFO     |   AAPL: 251 days loaded
+2026-07-05 13:01:52,259 | INFO     |   MSFT: 251 days loaded
+2026-07-05 13:01:52,417 | INFO     |   GOOGL: 251 days loaded
+2026-07-05 13:01:52,540 | INFO     |   AMZN: 251 days loaded
+2026-07-05 13:01:52,697 | INFO     |   NVDA: 251 days loaded
+2026-07-05 13:01:52,879 | INFO     |   META: 251 days loaded
+2026-07-05 13:01:53,004 | INFO     |   TSLA: 251 days loaded
+2026-07-05 13:01:53,221 | INFO     |   JPM: 251 days loaded
+2026-07-05 13:01:53,398 | INFO     |   V: 251 days loaded
+2026-07-05 13:01:53,654 | INFO     |   JNJ: 251 days loaded
+2026-07-05 13:01:53,655 | INFO     | Trade Lab initialized
+2026-07-05 13:01:53,659 | INFO     | Starting Trade Lab...
+2026-07-05 13:01:53,661 | INFO     | Capital: $100,000.00 CAD
+2026-07-05 13:01:53,662 | INFO     | Monthly deposit: $0.00 CAD
+2026-07-05 13:01:53,663 | INFO     | AI: DeepSeek (Primary) + Claude Haiku (Extreme Events Backup)
+2026-07-05 13:01:53,664 | INFO     | Schedule: Daily at 16:30 EST
+2026-07-05 13:01:53,665 | INFO     | Symbols: AAPL, MSFT, GOOGL, AMZN, NVDA, META, TSLA, JPM, V, JNJ
+2026-07-05 13:01:53,665 | INFO     | ============================================================
+2026-07-05 13:01:53,666 | INFO     | CYCLE #1 | 2026-07-05 13:01:53
+2026-07-05 13:01:53,667 | INFO     | ============================================================
+2026-07-05 13:01:54,922 | INFO     | FX rate (USD/CAD): 1.4200
+2026-07-05 13:01:54,931 | INFO     | USD/CAD: 1.4200
+2026-07-05 13:01:57,938 | INFO     | Equity: $100,000.00 CAD
+2026-07-05 13:02:01,075 | INFO     | DeepSeek Research: NVDA | score=-0.45 | confidence=0.65 | A 4.80% decline over 10 days with 2.00% volatility yields a z-score of approximately -1.07, indicating the move is within one standard deviation of expected noise and not statistically significant at the 95% confidence level.
+2026-07-05 13:02:03,978 | INFO     | DeepSeek Psych: NVDA | bias=recency | crowd=panic_selling
+2026-07-05 13:02:04,044 | INFO     | Trade: BUY 36.14563185824633 NVDA @ $194.93 USD
+2026-07-05 13:02:04,045 | INFO     | [TRADE] BUY 36.1456 NVDA @ $194.93 USD | Initial entry: -4.8% decline in 10 days | DeepSeek: A 4.80% decline over 10 days with 2.00% volatility yields a z-score of approximately -1.07, indicating the move is within one standard deviation of expected noise and not statistically significant at the 95% confidence level. | Claude: The sharp 10-day decline combined with elevated volatility triggers a recency bias, causing traders to overweight the recent negative price action and extrapolate further losses, leading to panic selling that is likely an overreaction given the absence of fundamental news catalysts.
+2026-07-05 13:02:04,053 | INFO     | Cycle complete: 1 trades in 10.4s
+2026-07-05 13:02:04,055 | INFO     | Equity: $99,844.93 CAD | P&L: $-155.07 | FX Fees: $150.07
+2026-07-05 13:02:04,059 | INFO     | [SCHEDULE] Daily run at 16:30 EST
+2026-07-05 13:02:04,060 | INFO     | System LIVE. Ctrl+C to stop.
+

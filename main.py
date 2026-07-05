@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """
 TRADE LAB - Autonomous Trading System
-Real Data · Simulated Money · 5/10 Strategy · Gemini + Claude AI
+Real Data · Simulated Money · 5/10 Strategy
+DeepSeek (Primary AI) + Claude Haiku (Extreme Events Only)
 Wealthsimple fee simulation · CAD base currency · USD/CAD real-time FX
 """
 
@@ -19,7 +20,7 @@ from config import Config
 from data.pipeline import DataPipeline
 from broker.paper_broker import PaperBroker
 from strategy.five_ten_rule import FiveTenStrategy, SignalAction
-from strategy.gemini_research import GeminiResearch
+from strategy.gemini_research import DeepSeekResearch
 from strategy.claude_psychology import ClaudePsychology
 from strategy.signal_merger import SignalMerger
 from risk.manager import RiskManager
@@ -36,7 +37,8 @@ BANNER = """
 ╔══════════════════════════════════════════════════════╗
 ║         🤖  TRADE LAB - Autonomous Trading          ║
 ║         Real Data · Fake Money · Multi-AI           ║
-║         5/10 Strategy · Gemini + Claude             ║
+║       5/10 Strategy · DeepSeek (Primary)           ║
+║       Claude Haiku (Extreme Events Only)           ║
 ║         Wealthsimple Fees · CAD Base Currency       ║
 ╚══════════════════════════════════════════════════════╝
 """
@@ -48,7 +50,7 @@ class TradeLab:
         self.data = DataPipeline(config)
         self.broker = PaperBroker(config)
         self.strategy = FiveTenStrategy(config)
-        self.gemini = GeminiResearch(config) if config.use_ai else None
+        self.deepseek = DeepSeekResearch(config) if config.use_ai else None
         self.claude = ClaudePsychology(config) if config.use_ai else None
         self.merger = SignalMerger(config)
         self.risk = RiskManager(config)
@@ -70,7 +72,7 @@ class TradeLab:
             self.broker.set_fx_rate(fx_rate)
             logger.info(f"USD/CAD: {fx_rate:.4f}")
 
-            # Monthly deposit
+            # Monthly deposit (on the 1st of each month)
             if start.day == 1:
                 self.broker.process_monthly_deposit()
 
@@ -108,8 +110,8 @@ class TradeLab:
                 if base_signal.action == SignalAction.HOLD:
                     continue
 
-                # 2. AI analysis (blind - they never see each other)
-                gemini_signal = None
+                # 2. AI analysis (BLIND - they never see each other)
+                deepseek_signal = None
                 claude_signal = None
 
                 if self.config.use_ai:
@@ -118,20 +120,26 @@ class TradeLab:
                     news_items = self.data.get_news(symbol)
                     headlines = [n.get("title", "") for n in news_items]
 
-                    gemini_signal = self.gemini.analyze(symbol, price_change, headlines, volatility) if self.gemini else None
-                    claude_signal = self.claude.analyze(symbol, price_change, headlines, volatility) if self.claude else None
+                    # DeepSeek: Always runs (primary AI for everything - research + math)
+                    if self.deepseek:
+                        deepseek_signal = self.deepseek.analyze(symbol, price_change, headlines, volatility)
 
-                # 3. Merge signals
-                final = self.merger.merge(base_signal, gemini_signal, claude_signal, current_qty)
+                    # Claude Haiku: Only for extreme events (paradigm shift, capitulation, >10% moves)
+                    is_extreme = (abs(price_change) > 0.10) if price_change else False
+                    if self.claude:
+                        claude_signal = self.claude.analyze(symbol, price_change, headlines, volatility, is_extreme_event=is_extreme)
+
+                # 3. Merge signals (math only, no AI in the merger)
+                final = self.merger.merge(base_signal, deepseek_signal, claude_signal, current_qty)
 
                 if final.action == "HOLD":
                     continue
 
-                # 4. Execute
+                # 4. Execute trade
                 if final.action == "BUY":
                     if current_qty == 0:
                         max_cad = min(self.config.risk.max_position_size_cad, self.broker.cash_cad * 0.1)
-                        max_usd = max_cad / fx_rate
+                        max_usd = max_cad / fx_rate if fx_rate > 0 else 0
                         qty = max_usd / current_price if current_price > 0 else 0
                     else:
                         qty = max(0.0001, current_qty * final.quantity_pct)
@@ -143,7 +151,7 @@ class TradeLab:
                             self.tracker.record_trade(symbol, "BUY", order.quantity,
                                 order.filled_price_usd, final.reason, final.ai_modified,
                                 fx_rate, order.fx_fee_cad)
-                            logger.info(f"✅ BUY {order.quantity} {symbol} @ ${order.filled_price_usd:.2f} USD")
+                            logger.info(f"[TRADE] BUY {order.quantity:.4f} {symbol} @ ${order.filled_price_usd:.2f} USD | {final.reason}")
 
                 elif final.action == "SELL" and current_qty > 0:
                     qty = max(0.0001, current_qty * final.quantity_pct)
@@ -153,7 +161,7 @@ class TradeLab:
                         self.tracker.record_trade(symbol, "SELL", order.quantity,
                             order.filled_price_usd, final.reason, final.ai_modified,
                             fx_rate, order.fx_fee_cad)
-                        logger.info(f"✅ SELL {order.quantity} {symbol} @ ${order.filled_price_usd:.2f} USD")
+                        logger.info(f"[TRADE] SELL {order.quantity:.4f} {symbol} @ ${order.filled_price_usd:.2f} USD | {final.reason}")
 
             # Snapshot
             summary = self.broker.get_portfolio_summary(prices)
@@ -181,16 +189,21 @@ class TradeLab:
         logger.info(f"Starting Trade Lab...")
         logger.info(f"Capital: ${self.config.broker.initial_capital_cad:,.2f} CAD")
         logger.info(f"Monthly deposit: ${self.config.broker.monthly_deposit_cad:,.2f} CAD")
-        logger.info(f"AI: {'Enabled' if self.config.use_ai else 'Disabled'}")
+        
+        ai_desc = "Disabled"
+        if self.config.use_ai:
+            ai_desc = "DeepSeek (Primary) + Claude Haiku (Extreme Events Backup)"
+        logger.info(f"AI: {ai_desc}")
+        
         logger.info(f"Schedule: Daily at {self.config.schedule.run_time} EST")
         logger.info(f"Symbols: {', '.join(self.config.data.symbols)}")
 
-        # First cycle
+        # Run first cycle immediately
         self.run_cycle()
 
-        # Schedule
+        # Schedule daily runs
         schedule.every().day.at(self.config.schedule.run_time).do(self.run_cycle)
-        logger.info(f"Scheduled daily at {self.config.schedule.run_time} EST")
+        logger.info(f"[SCHEDULE] Daily run at {self.config.schedule.run_time} EST")
         logger.info("System LIVE. Ctrl+C to stop.\n")
 
         try:
@@ -198,7 +211,7 @@ class TradeLab:
                 schedule.run_pending()
                 time.sleep(60)
                 if datetime.now().minute == 0:
-                    logger.info("💓 Heartbeat")
+                    logger.info("[HEARTBEAT] System running")
         except KeyboardInterrupt:
             logger.info("Shutting down...")
             self.tracker.print_report()
