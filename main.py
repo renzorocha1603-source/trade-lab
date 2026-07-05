@@ -5,6 +5,7 @@ Real Data · Simulated Money · 5/10 Strategy + RSI Filter
 DeepSeek (Primary AI) + Claude Haiku (Extreme Events)
 Finnhub + Alpha Vantage + Yahoo (Triple Data Source)
 Wealthsimple Fees · CAD Base · 24/7 Market-Hours Loop
+Multi-Scenario Simulator — Same AI, Different Account Sizes
 Auto-pushes logs to GitHub for dashboard sync
 """
 
@@ -13,7 +14,6 @@ import sys
 import time
 import signal
 import logging
-import schedule
 from datetime import datetime, timedelta
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -27,6 +27,7 @@ from strategy.claude_psychology import ClaudePsychology
 from strategy.signal_merger import SignalMerger
 from risk.manager import RiskManager
 from portfolio.tracker import PortfolioTracker
+from simulator.runner import ScenarioRunner
 
 logging.basicConfig(
     level=logging.INFO,
@@ -41,6 +42,7 @@ BANNER = """
 ║    5/10 Strategy + RSI · DeepSeek + Claude Haiku   ║
 ║    Finnhub + Alpha Vantage + Yahoo (Triple Data)   ║
 ║       Wealthsimple Fees · CAD · Paper Trading      ║
+║          Multi-Scenario Simulator Active           ║
 ╚══════════════════════════════════════════════════════╝
 """
 
@@ -56,10 +58,11 @@ class TradeLab:
         self.merger = SignalMerger(config)
         self.risk = RiskManager(config)
         self.tracker = PortfolioTracker()
+        self.scenario_runner = ScenarioRunner(config, self.data)
         self.data.load_historical_data()
         self.cycle_count = 0
         self.last_news_scan = None
-        logger.info("Trade Lab initialized | 24/7 Mode")
+        logger.info("Trade Lab initialized | 24/7 Mode | Multi-Scenario Active")
 
     # ==================== MARKET HOURS ====================
 
@@ -76,9 +79,6 @@ class TradeLab:
         market_open = (hour > 13 or (hour == 13 and minute >= 30))
         market_close = (hour < 20 or (hour == 20 and minute == 0))
         return market_open and market_close
-
-    def is_weekend(self) -> bool:
-        return datetime.now().weekday() >= 5
 
     # ==================== RSI CALCULATION ====================
 
@@ -199,9 +199,15 @@ class TradeLab:
                                 order.filled_price_usd, final.reason, final.ai_modified,
                                 fx_rate, order.fx_fee_cad)
                             self.data.record_prediction(symbol, "BUY", order.filled_price_usd,
-                                final.base_contribution, final.reason, 
+                                final.base_contribution, final.reason,
                                 news_freshness if 'news_freshness' in dir() else 0.5)
                             logger.info(f"[TRADE] BUY {order.quantity:.4f} {symbol} @ ${order.filled_price_usd:.2f} USD")
+
+                            # Execute same trade in all scenarios
+                            for sid in self.scenario_runner.results:
+                                self.scenario_runner.execute_trade_for_scenario(
+                                    sid, symbol, "buy", order.quantity, order.filled_price_usd, prices
+                                )
 
                 elif final.action == "SELL" and current_qty > 0:
                     qty = max(0.0001, current_qty * final.quantity_pct)
@@ -213,15 +219,23 @@ class TradeLab:
                             fx_rate, order.fx_fee_cad)
                         logger.info(f"[TRADE] SELL {order.quantity:.4f} {symbol} @ ${order.filled_price_usd:.2f} USD")
 
+                        # Execute same trade in all scenarios
+                        for sid in self.scenario_runner.results:
+                            self.scenario_runner.execute_trade_for_scenario(
+                                sid, symbol, "sell", order.quantity, order.filled_price_usd, prices
+                            )
+
             summary = self.broker.get_portfolio_summary(prices)
             self.tracker.record_snapshot(summary)
 
             duration = (datetime.now() - start).total_seconds()
             logger.info(f"Cycle: {trades_made} trades | {duration:.1f}s | Equity: ${summary['equity_cad']:,.2f} CAD")
 
+            # Daily report at 4:30 PM EST
             if datetime.now().hour == 20 and datetime.now().minute >= 30:
                 self.tracker.print_report()
                 self.data.print_accuracy_report()
+                self.scenario_runner.print_comparison()
 
         except Exception as e:
             logger.error(f"Cycle error: {e}", exc_info=True)
@@ -251,12 +265,12 @@ class TradeLab:
         """Auto-push log files to GitHub so the dashboard always has fresh data"""
         try:
             import subprocess
-            subprocess.run(["git", "config", "user.email", "bot@tradelab.com"], 
+            subprocess.run(["git", "config", "user.email", "bot@tradelab.com"],
                          capture_output=True, timeout=5)
-            subprocess.run(["git", "config", "user.name", "TradeLab Bot"], 
+            subprocess.run(["git", "config", "user.name", "TradeLab Bot"],
                          capture_output=True, timeout=5)
             subprocess.run(["git", "add", "logs/"], capture_output=True, timeout=10)
-            result = subprocess.run(["git", "commit", "-m", "Auto-update logs [bot]"], 
+            result = subprocess.run(["git", "commit", "-m", "Auto-update logs [bot]"],
                                   capture_output=True, timeout=10)
             if "nothing to commit" not in result.stdout.decode() and "nothing to commit" not in result.stderr.decode():
                 subprocess.run(["git", "push"], capture_output=True, timeout=15)
@@ -283,6 +297,7 @@ class TradeLab:
         logger.info(f"Data: Finnhub → Alpha Vantage → Yahoo (triple redundancy)")
         logger.info(f"Market: {'OPEN' if self.is_market_open() else 'CLOSED'}")
         logger.info(f"Symbols: {', '.join(self.config.data.symbols)}")
+        logger.info(f"Scenarios: {len(self.scenario_runner.scenarios)} active")
         logger.info("24/7 Loop starting...\n")
 
         self.run_cycle()
@@ -301,6 +316,7 @@ class TradeLab:
         except KeyboardInterrupt:
             logger.info("Shutting down...")
             self.tracker.print_report()
+            self.scenario_runner.print_comparison()
 
 
 def main():
