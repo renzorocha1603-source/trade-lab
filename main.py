@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
 """
-TRADE LAB v2.2 — Multi-Risk Profiles
-Conservative · Balanced · Aggressive
-5 Scenarios with different risk levels
-No main account — scenarios only
+TRADE LAB v2.3 — Self-Learning AI Trading
+DeepSeek (Research) + Claude (Psychology) + Letta (Learning Memory)
+3 Risk Profiles · 5 Scenarios · Self-Improving Over Time
+Finnhub + Alpha Vantage + Coinbase + Yahoo
+CAD Base · 24/7 Market-Hours Loop
 """
 
 import os, sys, time, signal, logging
@@ -20,6 +21,7 @@ from strategy.signal_merger import SignalMerger
 from risk.manager import RiskManager
 from portfolio.tracker import PortfolioTracker
 from simulator.runner import ScenarioRunner
+from learning.letta_memory import LettaMemory
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s | %(levelname)-8s | %(message)s',
     handlers=[logging.FileHandler('logs/system.log'), logging.StreamHandler()])
@@ -27,9 +29,10 @@ logger = logging.getLogger("TradeLab")
 
 BANNER = """
 ╔══════════════════════════════════════════════════════╗
-║      TRADE LAB v2.2 — Multi-Risk Profiles          ║
+║   TRADE LAB v2.3 — Self-Learning AI Trading        ║
+║   DeepSeek · Claude · Letta (Learning Memory)      ║
 ║   Conservative · Balanced · Aggressive             ║
-║   5 Scenarios · Each With Different Risk Level     ║
+║   5 Scenarios · Self-Improving Over Time           ║
 ╚══════════════════════════════════════════════════════╝
 """
 
@@ -44,6 +47,7 @@ class TradeLab:
         self.risk = RiskManager(config)
         self.tracker = PortfolioTracker()
         self.scenario_runner = ScenarioRunner(config, self.data)
+        self.letta = LettaMemory(config)
         self.data.load_historical_data()
         self.cycle_count = 0
         self.last_news_scan = None
@@ -61,7 +65,7 @@ class TradeLab:
             "consumer": ["WMT"],
         }
 
-        logger.info("Trade Lab v2.2 | 5 Scenarios | Multi-Risk Profiles")
+        logger.info("Trade Lab v2.3 | Self-Learning AI | 5 Scenarios | 3 Risk Profiles")
 
     # ==================== HELPERS ====================
 
@@ -183,6 +187,9 @@ class TradeLab:
             prices = self.data.get_live_prices()
             if not prices: return
 
+            # Letta checks past trade outcomes and learns
+            self.letta.check_outcomes(prices)
+
             macro = self.get_macro_context()
             vix = macro.get("vix", 20)
             total_trades = 0
@@ -206,7 +213,7 @@ class TradeLab:
 
                 if not is_market and base_signal.action == SignalAction.BUY: continue
 
-                # AI analysis (shared across all scenarios)
+                # AI analysis
                 deepseek_signal = None
                 claude_signal = None
                 news_freshness = 0.5
@@ -224,15 +231,27 @@ class TradeLab:
                     if self.claude and abs(price_change) > 0.10:
                         claude_signal = self.claude.analyze(symbol, price_change, headlines, atr, is_extreme_event=True)
 
+                # Letta advice based on past learning
+                letta_advice = self.letta.get_advice(symbol, rsi, vix)
+
                 final = self.merger.merge(base_signal, deepseek_signal, claude_signal, 0)
+
+                # Apply Letta learning on top
+                if letta_advice and final.action != "HOLD":
+                    if letta_advice["advice"] == "amplify_buy" and final.action == "BUY":
+                        final.quantity_pct = min(final.quantity_pct * 1.3, 1.0)
+                        final.reason += f" | Letta: {letta_advice['reason']} ({letta_advice['based_on']})"
+                    elif letta_advice["advice"] == "dampen_buy" and final.action == "BUY":
+                        final.quantity_pct = max(final.quantity_pct * 0.5, 0.01)
+                        final.reason += f" | Letta: {letta_advice['reason']} ({letta_advice['based_on']})"
+
                 if final.action == "HOLD": continue
 
-                # ====== EXECUTE TRADE IN EACH SCENARIO SEPARATELY ======
+                # ====== EXECUTE TRADE IN EACH SCENARIO ======
                 for scenario in self.scenario_runner.scenarios:
                     sid = scenario["id"]
                     profile = self.get_risk_profile(sid)
 
-                    # Get scenario broker
                     if sid not in self.scenario_runner.results:
                         self.scenario_runner._init_scenario(sid)
 
@@ -240,7 +259,6 @@ class TradeLab:
                     broker = entry["broker"]
                     broker.set_fx_rate(fx_rate)
 
-                    # Check scenario-specific filters
                     capital = broker.initial_capital_cad
                     equity = broker.get_equity_cad(prices)
                     pos_count = len([p for p in broker.positions.values() if p.quantity > 0])
@@ -257,7 +275,8 @@ class TradeLab:
                     # Sector limit
                     if profile["use_sector_limits"]:
                         sector = self.get_symbol_sector(symbol)
-                        sector_count = sum(1 for sym, pos in broker.positions.items() if pos.quantity > 0 and self.get_symbol_sector(sym) == sector)
+                        sector_count = sum(1 for sym, pos in broker.positions.items() 
+                                         if pos.quantity > 0 and self.get_symbol_sector(sym) == sector)
                         if sector_count >= profile["max_sector_positions"]: continue
 
                     # RSI filter
@@ -267,7 +286,7 @@ class TradeLab:
 
                     # ATR filter
                     if profile["use_atr_filter"] and base_signal.action == SignalAction.BUY:
-                        if atr > 0.05: continue  # Skip highly volatile
+                        if atr > 0.05: continue
 
                     # Calculate quantity
                     if final.action == "BUY":
@@ -287,10 +306,22 @@ class TradeLab:
                         total_trades += 1
                         entry["trades"] += 1
                         action_label = "BUY" if final.action == "BUY" else "SELL"
-                        logger.info(f"[{profile['name']}] {action_label} {order.quantity:.4f} {symbol} @ ${order.filled_price_usd:.2f} | {sid}")
+                        
+                        # Record in Letta memory for future learning
+                        self.letta.remember_trade(
+                            symbol, action_label, order.filled_price_usd,
+                            rsi, vix, final.reason, sid
+                        )
+                        
+                        # Record in tracker
+                        self.tracker.record_trade(symbol, action_label, order.quantity,
+                            order.filled_price_usd, final.reason, final.ai_modified,
+                            fx_rate, order.fx_fee_cad)
+                        
+                        logger.info(f"[{profile['name']}] {action_label} {order.quantity:.4f} {symbol} @ ${order.filled_price_usd:.2f} | {sid} | Letta rules: {len(self.letta.rules)}")
 
             duration = (datetime.now() - start).total_seconds()
-            logger.info(f"Cycle: {total_trades} trades across all scenarios | {duration:.1f}s")
+            logger.info(f"Cycle: {total_trades} trades | {duration:.1f}s | Letta: {len(self.letta.rules)} rules learned")
             self.scenario_runner.save_scenario_snapshots()
             self.push_logs_to_github()
 
@@ -328,11 +359,12 @@ class TradeLab:
     def start(self):
         self.running = True
         print(BANNER)
-        logger.info(f"AI: DeepSeek + Claude Haiku")
+        logger.info(f"AI: DeepSeek + Claude Haiku + Letta (Self-Learning)")
         logger.info(f"Symbols: {len(self.config.data.symbols)} | Scenarios: {len(self.scenario_runner.scenarios)}")
         logger.info(f"Risk Profiles: Conservative | Balanced | Aggressive")
+        logger.info(f"Letta Memory: {len(self.letta.rules)} learned rules loaded")
         logger.info(f"Market: {'OPEN' if self.is_market_open() else 'CLOSED'}")
-        logger.info("24/7 Loop starting...\n")
+        logger.info("24/7 Self-Learning Loop starting...\n")
         self.run_cycle()
 
         try:
@@ -346,6 +378,7 @@ class TradeLab:
                 time.sleep(60)
         except KeyboardInterrupt:
             logger.info("Shutting down...")
+            logger.info(f"Letta learned {len(self.letta.rules)} rules from {len(self.letta.trade_history)} trades")
             self.scenario_runner.print_comparison()
 
 
