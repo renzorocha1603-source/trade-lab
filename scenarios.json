@@ -2,38 +2,43 @@
   "scenarios": [
     {
       "id": "starter_500",
-      "name": "Starter - $500",
+      "name": "Starter $500",
       "starting_capital_cad": 500,
       "monthly_deposit_cad": 0,
-      "description": "Entry level — small account, TSX & crypto only (no FX fees)"
+      "risk_profile": "conservative",
+      "description": "Conservative — Low risk, 2-7 trades/week"
     },
     {
       "id": "basic_1k",
-      "name": "Basic - $1,000",
+      "name": "Basic $1K",
       "starting_capital_cad": 1000,
       "monthly_deposit_cad": 100,
-      "description": "Monthly saver starting small"
+      "risk_profile": "balanced",
+      "description": "Balanced — Medium risk, 10-20 trades/week"
     },
     {
       "id": "growth_2500",
-      "name": "Growth - $2,500",
+      "name": "Growth $2.5K",
       "starting_capital_cad": 2500,
       "monthly_deposit_cad": 250,
-      "description": "Serious individual investor"
+      "risk_profile": "balanced",
+      "description": "Balanced — Medium risk, 10-20 trades/week"
     },
     {
       "id": "pro_5k",
-      "name": "Pro - $5,000",
+      "name": "Pro $5K",
       "starting_capital_cad": 5000,
       "monthly_deposit_cad": 500,
-      "description": "Professional entry level"
+      "risk_profile": "balanced",
+      "description": "Balanced — Medium risk, 10-20 trades/week"
     },
     {
       "id": "elite_10k",
-      "name": "Elite - $10,000",
+      "name": "Elite $10K",
       "starting_capital_cad": 10000,
       "monthly_deposit_cad": 500,
-      "description": "Full strategy, all assets, maximum diversification"
+      "risk_profile": "aggressive",
+      "description": "Aggressive — High risk, unlimited trades"
     }
   ]
 }

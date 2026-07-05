@@ -7,7 +7,6 @@ load_dotenv()
 
 @dataclass
 class DeepSeekConfig:
-    """DeepSeek - Primary AI for all daily analysis"""
     api_key: str = field(default_factory=lambda: os.getenv("DEEPSEEK_API_KEY", ""))
     model: str = "deepseek-chat"
     temperature: float = 0.3
@@ -18,7 +17,6 @@ class DeepSeekConfig:
 
 @dataclass
 class ClaudeConfig:
-    """Claude Haiku - Premium backup for extreme events only"""
     api_key: str = field(default_factory=lambda: os.getenv("CLAUDE_API_KEY", ""))
     model_name: str = "claude-haiku-3-5-20241022"
     temperature: float = 0.3
@@ -33,6 +31,7 @@ class StrategyConfig:
     buy_fraction: float = 0.05
     sell_fraction: float = 0.10
     initial_position_pct: float = 0.10
+    risk_profile: str = "balanced"
 
 @dataclass
 class RiskConfig:
@@ -63,28 +62,18 @@ class BrokerConfig:
 class DataConfig:
     historical_years: int = 1
     symbols: List[str] = field(default_factory=lambda: [
-        # === TIER 1: Gold — Market Leaders (every 15 min) ===
         "SPY", "QQQ", "AAPL", "MSFT", "NVDA",
-        
-        # === TIER 2: Silver — Major Stocks/ETFs (every hour) ===
         "GOOGL", "AMZN", "META", "TSLA", "JPM", "V", "JNJ",
         "IWM", "DIA", "XLF", "XLK", "XLE",
-        
-        # === TIER 3: Bronze — Extended Universe (every 4 hours) ===
-        # Canadian Stocks
         "RY.TO", "TD.TO", "SHOP.TO", "ENB.TO", "CNQ.TO",
-        # Canadian ETFs
         "XIU.TO", "VFV.TO",
-        # International
         "BABA", "TSM", "WMT", "XOM", "XLV",
-        # Crypto
         "BTC-USD", "ETH-USD",
     ])
     benchmark: str = "SPY"
 
 @dataclass
 class NewsConfig:
-    """Multi-source news configuration"""
     finnhub_api_key: str = field(default_factory=lambda: os.getenv("FINNHUB_API_KEY", ""))
     alpha_vantage_api_key: str = field(default_factory=lambda: os.getenv("ALPHA_VANTAGE_API_KEY", ""))
     max_news_age_minutes: int = 30
@@ -92,11 +81,51 @@ class NewsConfig:
     min_confidence_for_stale_news: float = 0.3
 
 @dataclass
+class RiskProfileConfig:
+    conservative: dict = field(default_factory=lambda: {
+        "name": "Conservative",
+        "use_rsi_filter": True,
+        "rsi_threshold_modifier": 5,
+        "use_atr_filter": True,
+        "use_sector_limits": True,
+        "max_sector_positions": 2,
+        "cash_reserve_pct": 0.20,
+        "max_positions": 3,
+        "can_trade_us": False,
+        "min_notional": 5.0,
+    })
+    balanced: dict = field(default_factory=lambda: {
+        "name": "Balanced",
+        "use_rsi_filter": True,
+        "rsi_threshold_modifier": 0,
+        "use_atr_filter": False,
+        "use_sector_limits": True,
+        "max_sector_positions": 3,
+        "cash_reserve_pct": 0.10,
+        "max_positions": 6,
+        "can_trade_us": True,
+        "min_notional": 2.0,
+    })
+    aggressive: dict = field(default_factory=lambda: {
+        "name": "Aggressive",
+        "use_rsi_filter": False,
+        "rsi_threshold_modifier": -10,
+        "use_atr_filter": False,
+        "use_sector_limits": False,
+        "max_sector_positions": 99,
+        "cash_reserve_pct": 0.05,
+        "max_positions": 10,
+        "can_trade_us": True,
+        "min_notional": 1.0,
+    })
+
+@dataclass
 class Config:
     deepseek: DeepSeekConfig = field(default_factory=DeepSeekConfig)
     claude: ClaudeConfig = field(default_factory=ClaudeConfig)
     strategy: StrategyConfig = field(default_factory=StrategyConfig)
     risk: RiskConfig = field(default_factory=RiskConfig)
+    risk_profile: RiskProfileConfig = field(default_factory=RiskProfileConfig)
     schedule: ScheduleConfig = field(default_factory=ScheduleConfig)
     broker: BrokerConfig = field(default_factory=BrokerConfig)
     data: DataConfig = field(default_factory=DataConfig)

@@ -1,6 +1,6 @@
 """
 Multi-Scenario Runner — Tests the same strategy across different account sizes.
-Each scenario is an isolated paper account. Same AI, same trades, different money.
+Each scenario is an isolated paper account with its own risk profile.
 Saves snapshots for dashboard display.
 """
 
@@ -28,32 +28,29 @@ class ScenarioRunner:
         if not os.path.exists(path):
             logger.warning("scenarios.json not found, using defaults")
             return [{
-                "id": "default_100k",
-                "name": "Default - $100,000",
-                "starting_capital_cad": 100000,
+                "id": "default_5k",
+                "name": "Default $5,000",
+                "starting_capital_cad": 5000,
                 "monthly_deposit_cad": 0,
+                "risk_profile": "balanced",
             }]
         with open(path) as f:
             data = json.load(f)
         return data.get("scenarios", [])
 
-    def run_all_scenarios(self, prices: Dict[str, float], fx_rate: float,
-                         base_signal, deepseek_signal, claude_signal,
-                         merger) -> Dict[str, dict]:
-        results = {}
-        for scenario in self.scenarios:
-            scenario_id = scenario["id"]
-            scenario_name = scenario["name"]
-            capital = scenario["starting_capital_cad"]
-            monthly = scenario["monthly_deposit_cad"]
+    def _init_scenario(self, scenario_id: str):
+        """Initialize a scenario if it doesn't exist yet"""
+        if scenario_id in self.results:
+            return
 
-            if scenario_id not in self.results:
+        for scenario in self.scenarios:
+            if scenario["id"] == scenario_id:
                 from broker.paper_broker import PaperBroker
                 broker = PaperBroker.__new__(PaperBroker)
                 broker.config = self.config
-                broker.cash_cad = capital
-                broker.initial_capital_cad = capital
-                broker.monthly_deposit_cad = monthly
+                broker.cash_cad = scenario["starting_capital_cad"]
+                broker.initial_capital_cad = scenario["starting_capital_cad"]
+                broker.monthly_deposit_cad = scenario.get("monthly_deposit_cad", 0)
                 broker.fx_fee_pct = self.config.broker.fx_fee_pct
                 broker.commission = self.config.broker.commission_per_trade
                 broker.slippage_pct = self.config.broker.slippage_pct
@@ -62,57 +59,30 @@ class ScenarioRunner:
                 broker.positions = {}
                 broker.order_history = []
                 broker.deposit_history = []
-                broker._current_fx_rate = fx_rate
+                broker._current_fx_rate = 1.35
                 broker.set_fx_rate = lambda r: setattr(broker, '_current_fx_rate', r)
 
                 self.results[scenario_id] = {
-                    "name": scenario_name,
+                    "name": scenario["name"],
                     "broker": broker,
                     "trades": 0,
-                    "snapshots": [],
+                    "risk_profile": scenario.get("risk_profile", "balanced"),
                 }
-
-            entry = self.results[scenario_id]
-            broker = entry["broker"]
-            broker.set_fx_rate(fx_rate)
-
-            if datetime.now().day == 1:
-                broker.process_monthly_deposit()
-
-            equity = broker.get_equity_cad(prices)
-
-            entry["snapshots"].append({
-                "timestamp": datetime.now().isoformat(),
-                "equity_cad": round(equity, 2),
-                "cash_cad": round(broker.cash_cad, 2),
-                "positions_count": len([p for p in broker.positions.values() if p.quantity > 0]),
-                "trades_count": entry["trades"],
-            })
-
-            results[scenario_id] = {
-                "name": scenario_name,
-                "capital": capital,
-                "monthly": monthly,
-                "equity": round(equity, 2),
-                "cash": round(broker.cash_cad, 2),
-                "pnl": round(equity - capital, 2),
-                "pnl_pct": round((equity / capital - 1) * 100, 2) if capital > 0 else 0,
-                "trades": entry["trades"],
-                "positions": len([p for p in broker.positions.values() if p.quantity > 0]),
-            }
-
-        return results
+                logger.info(f"Initialized scenario: {scenario['name']} (${scenario['starting_capital_cad']:,.0f} CAD)")
+                return
 
     def execute_trade_for_scenario(self, scenario_id: str, symbol: str,
                                   action: str, quantity: float, price: float,
                                   prices: Dict[str, float]) -> bool:
+        if scenario_id not in self.results:
+            self._init_scenario(scenario_id)
         if scenario_id not in self.results:
             return False
 
         entry = self.results[scenario_id]
         broker = entry["broker"]
 
-        capital_ratio = broker.initial_capital_cad / self.config.broker.initial_capital_cad
+        capital_ratio = broker.initial_capital_cad / 100000
         adjusted_qty = quantity * capital_ratio
 
         if adjusted_qty <= 0:
@@ -145,15 +115,15 @@ class ScenarioRunner:
                 "trades": entry["trades"],
                 "positions": len([p for p in broker.positions.values() if p.quantity > 0]),
                 "monthly_deposit": broker.monthly_deposit_cad,
+                "risk_profile": entry.get("risk_profile", "balanced"),
             })
         try:
             with open("logs/scenario_snapshots.json", "w") as f:
                 json.dump(snapshots, f, indent=2, default=str)
-            logger.debug(f"Saved {len(snapshots)} scenario snapshots")
         except Exception as e:
             logger.debug(f"Scenario save error: {e}")
 
-    def get_comparison(self) -> dict:
+    def get_comparison(self) -> list:
         comparison = []
         for sid, entry in self.results.items():
             capital = entry["broker"].initial_capital_cad
@@ -165,6 +135,7 @@ class ScenarioRunner:
                 "pnl": f"${equity - capital:,.2f}",
                 "pnl_pct": f"{((equity / capital - 1) * 100):+.2f}%" if capital > 0 else "0%",
                 "trades": entry["trades"],
+                "risk": entry.get("risk_profile", "balanced"),
             })
         return comparison
 
@@ -172,12 +143,9 @@ class ScenarioRunner:
         comparison = self.get_comparison()
         if not comparison:
             return
-
         print(f"\n{'='*80}")
-        print(f"  SCENARIO COMPARISON — Same AI, Different Starting Amounts")
+        print(f"  SCENARIO COMPARISON")
         print(f"{'='*80}")
-        print(f"  {'Scenario':<25} {'Start':>12} {'Now':>12} {'P&L':>12} {'Return':>10} {'Trades':>8}")
-        print(f"  {'-'*75}")
         for c in comparison:
-            print(f"  {c['name']:<25} {c['starting']:>12} {c['now']:>12} {c['pnl']:>12} {c['pnl_pct']:>10} {c['trades']:>8}")
+            print(f"  {c['name']:<20} | Start: {c['starting']:>12} | Now: {c['now']:>12} | {c['pnl_pct']:>8} | {c['trades']} trades | {c['risk']}")
         print(f"{'='*80}\n")
