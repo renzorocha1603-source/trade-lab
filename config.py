@@ -62,7 +62,24 @@ class BrokerConfig:
 @dataclass
 class DataConfig:
     historical_years: int = 1
-    symbols: List[str] = field(default_factory=lambda: ["AAPL","MSFT","GOOGL","AMZN","NVDA","META","TSLA","JPM","V","JNJ"])
+    symbols: List[str] = field(default_factory=lambda: [
+        # === TIER 1: Gold — Market Leaders (every 15 min) ===
+        "SPY", "QQQ", "AAPL", "MSFT", "NVDA",
+        
+        # === TIER 2: Silver — Major Stocks/ETFs (every hour) ===
+        "GOOGL", "AMZN", "META", "TSLA", "JPM", "V", "JNJ",
+        "IWM", "DIA", "XLF", "XLK", "XLE",
+        
+        # === TIER 3: Bronze — Extended Universe (every 4 hours) ===
+        # Canadian Stocks
+        "RY.TO", "TD.TO", "SHOP.TO", "ENB.TO", "CNQ.TO",
+        # Canadian ETFs
+        "XIU.TO", "VFV.TO",
+        # International
+        "BABA", "TSM", "WMT", "XOM", "XLV",
+        # Crypto
+        "BTC-USD", "ETH-USD",
+    ])
     benchmark: str = "SPY"
 
 @dataclass
