@@ -76,8 +76,9 @@ st.divider()
 st.markdown('<p class="section-title">🏆 Scenario Performance Comparison</p>', unsafe_allow_html=True)
 st.markdown('<p class="section-subtitle">Each account\'s total return side by side. Taller bars = better performance.</p>', unsafe_allow_html=True)
 
+
+latest_scenarios = {}
 if scenarios:
-    latest_scenarios = {}
     for s in scenarios:
         sid = s.get("scenario_id", "unknown")
         if sid not in latest_scenarios or s.get("timestamp", "") > latest_scenarios[sid].get("timestamp", ""):
