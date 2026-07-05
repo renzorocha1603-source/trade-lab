@@ -1,39 +1,39 @@
 {
   "scenarios": [
     {
-      "id": "starter_200",
-      "name": "Starter - $200",
-      "starting_capital_cad": 200,
+      "id": "starter_500",
+      "name": "Starter - $500",
+      "starting_capital_cad": 500,
       "monthly_deposit_cad": 0,
-      "description": "Minimum test — can the AI grow a tiny account?"
+      "description": "Entry level — small account, TSX & crypto only (no FX fees)"
     },
     {
-      "id": "basic_1k_250",
-      "name": "Basic - $1,000 + $250/month",
+      "id": "basic_1k",
+      "name": "Basic - $1,000",
       "starting_capital_cad": 1000,
-      "monthly_deposit_cad": 250,
-      "description": "Small investor adding monthly"
+      "monthly_deposit_cad": 100,
+      "description": "Monthly saver starting small"
     },
     {
-      "id": "growth_5k_500",
-      "name": "Growth - $5,000 + $500/month",
-      "starting_capital_cad": 5000,
-      "monthly_deposit_cad": 500,
+      "id": "growth_2500",
+      "name": "Growth - $2,500",
+      "starting_capital_cad": 2500,
+      "monthly_deposit_cad": 250,
       "description": "Serious individual investor"
     },
     {
-      "id": "serious_10k",
-      "name": "Serious - $10,000",
-      "starting_capital_cad": 10000,
-      "monthly_deposit_cad": 0,
-      "description": "Lump sum investor"
+      "id": "pro_5k",
+      "name": "Pro - $5,000",
+      "starting_capital_cad": 5000,
+      "monthly_deposit_cad": 500,
+      "description": "Professional entry level"
     },
     {
-      "id": "pro_100k_1k",
-      "name": "Pro - $100,000 + $1,000/month",
-      "starting_capital_cad": 100000,
-      "monthly_deposit_cad": 1000,
-      "description": "Professional / institutional test"
+      "id": "elite_10k",
+      "name": "Elite - $10,000",
+      "starting_capital_cad": 10000,
+      "monthly_deposit_cad": 500,
+      "description": "Full strategy, all assets, maximum diversification"
     }
   ]
 }
