@@ -1,10 +1,9 @@
 #!/usr/bin/env python3
 """
-TRADE LAB v2.3 — Self-Learning AI Trading
-DeepSeek (Research) + Claude (Psychology) + Letta (Learning Memory)
-3 Risk Profiles · 5 Scenarios · Self-Improving Over Time
-Finnhub + Alpha Vantage + Coinbase + Yahoo
-CAD Base · 24/7 Market-Hours Loop
+TRADE LAB v2.6 — Mathematical Trading Engine
+Stocks: Z-Score + Kelly + Sharpe | Crypto: Pennies Scalping
+DeepSeek (Math) + Claude (Psychology) + Letta (Brain + Memory)
+5 Scenarios · 4 Stocks + 1 Crypto · 24/7 Operation
 """
 
 import os, sys, time, signal, logging
@@ -17,7 +16,7 @@ from data.pipeline import DataPipeline
 from strategy.five_ten_rule import FiveTenStrategy, SignalAction
 from strategy.deepseek_research import DeepSeekResearch
 from strategy.claude_psychology import ClaudePsychology
-from strategy.signal_merger import SignalMerger
+from strategy.crypto_scalper import CryptoPenniesStrategy
 from risk.manager import RiskManager
 from portfolio.tracker import PortfolioTracker
 from simulator.runner import ScenarioRunner
@@ -28,12 +27,12 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s | %(levelname)-8s | 
 logger = logging.getLogger("TradeLab")
 
 BANNER = """
-╔══════════════════════════════════════════════════════╗
-║   TRADE LAB v2.3 — Self-Learning AI Trading        ║
-║   DeepSeek · Claude · Letta (Learning Memory)      ║
-║   Conservative · Balanced · Aggressive             ║
-║   5 Scenarios · Self-Improving Over Time           ║
-╚══════════════════════════════════════════════════════╝
+╔══════════════════════════════════════════════════════════════╗
+║         TRADE LAB v2.6 — MATHEMATICAL TRADING ENGINE       ║
+║   Stocks: Z-Score + Kelly + Sharpe                         ║
+║   Crypto: Pennies Scalping 24/7                            ║
+║   DeepSeek · Claude · Letta Brain                          ║
+╚══════════════════════════════════════════════════════════════╝
 """
 
 class TradeLab:
@@ -41,9 +40,9 @@ class TradeLab:
         self.config = config
         self.data = DataPipeline(config)
         self.strategy = FiveTenStrategy(config)
+        self.crypto_strategy = CryptoPenniesStrategy(config)
         self.deepseek = DeepSeekResearch(config) if config.use_ai else None
         self.claude = ClaudePsychology(config) if config.use_ai else None
-        self.merger = SignalMerger(config)
         self.risk = RiskManager(config)
         self.tracker = PortfolioTracker()
         self.scenario_runner = ScenarioRunner(config, self.data)
@@ -52,6 +51,7 @@ class TradeLab:
         self.cycle_count = 0
         self.last_news_scan = None
         self.last_tier3_scan = None
+        self.running = True
 
         self.sectors = {
             "tech": ["AAPL","MSFT","GOOGL","META","NVDA","TSLA","QQQ","XLK"],
@@ -65,9 +65,7 @@ class TradeLab:
             "consumer": ["WMT"],
         }
 
-        logger.info("Trade Lab v2.3 | Self-Learning AI | 5 Scenarios | 3 Risk Profiles")
-
-    # ==================== HELPERS ====================
+        logger.info(f"TradeLab v2.6 | Stocks: Z-Score+Kelly | Crypto: Pennies | Letta Brain")
 
     def is_market_open(self) -> bool:
         now = datetime.now()
@@ -77,12 +75,16 @@ class TradeLab:
         if (month, day) in holidays: return False
         return (now.hour > 13 or (now.hour == 13 and now.minute >= 30)) and (now.hour < 20)
 
+    def is_crypto_symbol(self, symbol: str) -> bool:
+        return symbol in ["BTC-USD", "ETH-USD"]
+
     def get_symbol_tier(self, symbol: str) -> int:
         if symbol in ["SPY","QQQ","AAPL","MSFT","NVDA"]: return 1
         if symbol in ["GOOGL","AMZN","META","TSLA","JPM","V","JNJ","IWM","DIA","XLF","XLK","XLE"]: return 2
         return 3
 
     def should_scan_symbol(self, symbol: str) -> bool:
+        if self.is_crypto_symbol(symbol): return True  # Always scan crypto
         tier = self.get_symbol_tier(symbol)
         now = datetime.now()
         if tier == 1: return True
@@ -99,7 +101,7 @@ class TradeLab:
         return "other"
 
     def is_canadian_or_crypto(self, symbol: str) -> bool:
-        return ".TO" in symbol or "-USD" in symbol
+        return ".TO" in symbol or self.is_crypto_symbol(symbol)
 
     def get_risk_profile(self, scenario_id: str) -> dict:
         for s in self.scenario_runner.scenarios:
@@ -107,8 +109,6 @@ class TradeLab:
                 profile_name = s.get("risk_profile", "balanced")
                 return getattr(self.config.risk_profile, profile_name, self.config.risk_profile.balanced)
         return self.config.risk_profile.balanced
-
-    # ==================== TECHNICALS ====================
 
     def calculate_rsi(self, prices, period=14) -> float:
         if len(prices) < period + 1: return 50.0
@@ -120,36 +120,6 @@ class TradeLab:
             if losses == 0: return 100.0
             return 100.0 - (100.0 / (1.0 + gains / losses))
         except: return 50.0
-
-    def calculate_atr(self, prices, period=14) -> float:
-        if len(prices) < period + 1: return 0.02
-        try:
-            import numpy as np
-            closes = prices[-period-1:]
-            tr = np.abs(np.diff(closes))
-            return np.mean(tr) / closes[-1] if closes[-1] > 0 else 0.02
-        except: return 0.02
-
-    def calculate_volume_trend(self, volumes=None) -> str:
-        if volumes is None or len(volumes) < 5: return "normal"
-        try:
-            recent = sum(volumes[-3:]) / 3
-            older = sum(volumes[-6:-3]) / 3 if len(volumes) >= 6 else recent
-            if recent > older * 1.3: return "increasing"
-            if recent < older * 0.7: return "decreasing"
-        except: pass
-        return "normal"
-
-    def calculate_ma_distance(self, prices) -> float:
-        if len(prices) < 50: return 0.0
-        try:
-            import numpy as np
-            ma50 = np.mean(prices[-50:])
-            return ((prices[-1] - ma50) / ma50) * 100
-        except: return 0.0
-
-    def get_dynamic_rsi_threshold(self, vix: float = 20, modifier: float = 0) -> float:
-        return 40 + (20 - vix) * 0.5 + modifier
 
     def get_macro_context(self) -> dict:
         context = {"vix": 20, "usdcad": "1.35", "regime": "normal"}
@@ -170,26 +140,22 @@ class TradeLab:
         except: pass
         return context
 
-    # ==================== TRADING CYCLE ====================
-
     def run_cycle(self):
         start = datetime.now()
         self.cycle_count += 1
         is_market = self.is_market_open()
         mode = "MARKET HOURS" if is_market else "AFTER HOURS"
 
-        logger.info(f"{'='*60}")
+        logger.info(f"{'='*70}")
         logger.info(f"CYCLE #{self.cycle_count} | {mode} | {start.strftime('%Y-%m-%d %H:%M:%S')}")
-        logger.info(f"{'='*60}")
+        logger.info(f"{'='*70}")
 
         try:
             fx_rate = self.data.get_usd_cad_rate()
             prices = self.data.get_live_prices()
             if not prices: return
 
-            # Letta checks past trade outcomes and learns
             self.letta.check_outcomes(prices)
-
             macro = self.get_macro_context()
             vix = macro.get("vix", 20)
             total_trades = 0
@@ -197,58 +163,99 @@ class TradeLab:
             for symbol in self.config.data.symbols:
                 if not self.should_scan_symbol(symbol): continue
 
+                # ========== CRYPTO: Pennies Strategy ==========
+                if self.is_crypto_symbol(symbol):
+                    crypto_signal = self.crypto_strategy.generate_signal(symbol)
+                    if not crypto_signal: continue
+
+                    # Find crypto scenario
+                    for scenario in self.scenario_runner.scenarios:
+                        if scenario.get("type") != "crypto": continue
+                        sid = scenario["id"]
+                        if sid not in self.scenario_runner.results:
+                            self.scenario_runner._init_scenario(sid)
+                        entry = self.scenario_runner.results[sid]
+                        broker = entry["broker"]
+                        broker.set_fx_rate(fx_rate)
+
+                        qty = crypto_signal["quantity_pct"]
+                        order = broker.place_market_order(symbol, "buy", qty, prices)
+                        if order and order.status == "filled":
+                            total_trades += 1
+                            entry["trades"] += 1
+                            logger.info(f"[Pennies] BUY {order.quantity:.4f} {symbol} @ ${order.filled_price_usd:.2f} | {crypto_signal['reason']}")
+                    continue
+
+                # ========== STOCKS: Z-Score Strategy ==========
                 hist = self.data._price_cache.get(symbol)
                 if hist is None or len(hist) < 20: continue
 
                 current_price = prices.get(symbol, 0)
                 if current_price <= 0: continue
 
-                atr = self.calculate_atr(hist.values)
                 rsi = self.calculate_rsi(hist.values)
-                volume_trend = self.calculate_volume_trend()
-                ma_distance = self.calculate_ma_distance(hist.values)
 
+                # Get default profile for signal generation
                 base_signal = self.strategy.generate_signal(symbol, hist, 0)
                 if base_signal.action == SignalAction.HOLD: continue
+                
+                # After hours: only allow crypto buys, stock sells
+                if not is_market and base_signal.action == SignalAction.BUY:
+                    if not self.is_crypto_symbol(symbol):
+                        continue
 
-                if not is_market and base_signal.action == SignalAction.BUY: continue
+                if base_signal.metrics is None:
+                    base_signal.metrics = {}
+                base_signal.metrics["rsi"] = rsi
 
-                # AI analysis
-                deepseek_signal = None
-                claude_signal = None
-                news_freshness = 0.5
+                deepseek_signal_dict = None
+                claude_opinion_dict = None
+
                 if self.config.use_ai:
                     price_change = base_signal.metrics.get("period_return", 0) or 0
                     news_items = self.data.get_news(symbol)
                     headlines = [n.get("title", "") for n in news_items]
                     news_freshness = self.data.get_news_freshness_factor(news_items)
+                    base_signal.metrics["news_freshness"] = news_freshness
+
                     if self.deepseek:
-                        deepseek_signal = self.deepseek.analyze(
-                            symbol, price_change, headlines, atr,
-                            rsi=rsi, volume_trend=volume_trend, ma_distance=ma_distance,
-                            macro_context=macro
+                        raw_ds = self.deepseek.analyze(
+                            symbol=symbol, history=hist, current_price=current_price,
+                            macro=macro, rsi=rsi, atr=0.02
                         )
+                        if raw_ds:
+                            deepseek_signal_dict = {
+                                "sentiment_score": raw_ds.get("sentiment_score", 0),
+                                "confidence": raw_ds.get("confidence", 0.5),
+                                "recommendation": raw_ds.get("recommendation", "no_change"),
+                                "key_findings": raw_ds.get("key_findings", ""),
+                            }
+
                     if self.claude and abs(price_change) > 0.10:
-                        claude_signal = self.claude.analyze(symbol, price_change, headlines, atr, is_extreme_event=True)
+                        raw_cl = self.claude.analyze(
+                            symbol=symbol, price_change=price_change,
+                            headlines=headlines, volatility=0.02, is_extreme=True
+                        )
+                        if raw_cl:
+                            claude_opinion_dict = {
+                                "sentiment_score": raw_cl.get("sentiment_score", 0),
+                                "confidence": raw_cl.get("confidence", 0.5),
+                                "recommendation": raw_cl.get("recommendation", "no_change"),
+                                "reasoning": raw_cl.get("reasoning", ""),
+                            }
 
-                # Letta advice based on past learning
-                letta_advice = self.letta.get_advice(symbol, rsi, vix)
+                final = self.letta.make_final_decision(
+                    symbol=symbol, base_signal=base_signal,
+                    deepseek_signal=deepseek_signal_dict,
+                    claude_opinion=claude_opinion_dict,
+                    current_price=current_price, macro=macro
+                )
 
-                final = self.merger.merge(base_signal, deepseek_signal, claude_signal, 0)
+                if final["action"] == "HOLD": continue
 
-                # Apply Letta learning on top
-                if letta_advice and final.action != "HOLD":
-                    if letta_advice["advice"] == "amplify_buy" and final.action == "BUY":
-                        final.quantity_pct = min(final.quantity_pct * 1.3, 1.0)
-                        final.reason += f" | Letta: {letta_advice['reason']} ({letta_advice['based_on']})"
-                    elif letta_advice["advice"] == "dampen_buy" and final.action == "BUY":
-                        final.quantity_pct = max(final.quantity_pct * 0.5, 0.01)
-                        final.reason += f" | Letta: {letta_advice['reason']} ({letta_advice['based_on']})"
-
-                if final.action == "HOLD": continue
-
-                # ====== EXECUTE TRADE IN EACH SCENARIO ======
+                # Execute in stock scenarios
                 for scenario in self.scenario_runner.scenarios:
+                    if scenario.get("type") == "crypto": continue
                     sid = scenario["id"]
                     profile = self.get_risk_profile(sid)
 
@@ -259,76 +266,51 @@ class TradeLab:
                     broker = entry["broker"]
                     broker.set_fx_rate(fx_rate)
 
-                    capital = broker.initial_capital_cad
                     equity = broker.get_equity_cad(prices)
                     pos_count = len([p for p in broker.positions.values() if p.quantity > 0])
-                    cash_reserve = profile["cash_reserve_pct"]
-                    available_cash = broker.cash_cad * (1 - cash_reserve)
-                    max_pos = profile["max_positions"]
+                    qty = final["quantity_pct"]
+                    proposed_value = qty * current_price * fx_rate if fx_rate > 0 else 0
 
-                    # Position cap
-                    if pos_count >= max_pos: continue
+                    safe, reason = self.risk.can_execute(
+                        decision=final, symbol=symbol, current_equity=equity,
+                        initial_capital=broker.initial_capital_cad,
+                        current_positions_count=pos_count, proposed_value_cad=proposed_value
+                    )
 
-                    # US stock restriction
+                    if not safe: continue
+                    if pos_count >= profile["max_positions"]: continue
                     if not profile["can_trade_us"] and not self.is_canadian_or_crypto(symbol): continue
-
-                    # Sector limit
-                    if profile["use_sector_limits"]:
-                        sector = self.get_symbol_sector(symbol)
-                        sector_count = sum(1 for sym, pos in broker.positions.items() 
-                                         if pos.quantity > 0 and self.get_symbol_sector(sym) == sector)
-                        if sector_count >= profile["max_sector_positions"]: continue
-
-                    # RSI filter
-                    if profile["use_rsi_filter"] and base_signal.action == SignalAction.BUY:
-                        rsi_threshold = self.get_dynamic_rsi_threshold(vix, profile["rsi_threshold_modifier"])
+                    if profile["use_rsi_filter"] and final["action"] == "BUY":
+                        rsi_threshold = 40 + (20 - vix) * 0.5 + profile["rsi_threshold_modifier"]
                         if rsi > rsi_threshold: continue
+                    if qty <= 0: continue
 
-                    # ATR filter
-                    if profile["use_atr_filter"] and base_signal.action == SignalAction.BUY:
-                        if atr > 0.05: continue
-
-                    # Calculate quantity
-                    if final.action == "BUY":
-                        max_allocation = min(self.config.risk.max_position_size_cad, available_cash * 0.10)
-                        qty = max_allocation / (current_price * fx_rate) if fx_rate > 0 else 0
-                        notional_cad = qty * current_price * fx_rate
-                        if notional_cad < profile["min_notional"]: continue
-                        if qty <= 0: continue
-                    else:
-                        pos = broker.positions.get(symbol)
-                        if not pos or pos.quantity <= 0: continue
-                        qty = max(0.0001, pos.quantity * final.quantity_pct)
-
-                    # Execute
-                    order = broker.place_market_order(symbol, "buy" if final.action == "BUY" else "sell", qty, prices)
+                    order = broker.place_market_order(symbol, final["action"].lower(), qty, prices)
                     if order and order.status == "filled":
                         total_trades += 1
                         entry["trades"] += 1
-                        action_label = "BUY" if final.action == "BUY" else "SELL"
-                        
-                        # Record in Letta memory for future learning
-                        self.letta.remember_trade(
-                            symbol, action_label, order.filled_price_usd,
-                            rsi, vix, final.reason, sid
-                        )
-                        
-                        # Record in tracker
-                        self.tracker.record_trade(symbol, action_label, order.quantity,
-                            order.filled_price_usd, final.reason, final.ai_modified,
-                            fx_rate, order.fx_fee_cad)
-                        
-                        logger.info(f"[{profile['name']}] {action_label} {order.quantity:.4f} {symbol} @ ${order.filled_price_usd:.2f} | {sid} | Letta rules: {len(self.letta.rules)}")
+                        logger.info(f"[{profile['name']}] {final['action']} {order.quantity:.4f} {symbol} @ ${order.filled_price_usd:.2f} | Z:{base_signal.z_score:.2f}")
+
+                        self.letta.remember_trade({
+                            "symbol": symbol, "action": final["action"],
+                            "price": order.filled_price_usd, "quantity_pct": final["quantity_pct"],
+                            "rsi": rsi, "vix": vix,
+                            "deepseek_score": deepseek_signal_dict.get("sentiment_score") if deepseek_signal_dict else None,
+                            "deepseek_confidence": deepseek_signal_dict.get("confidence") if deepseek_signal_dict else None,
+                            "claude_sentiment": claude_opinion_dict.get("sentiment_score") if claude_opinion_dict else None,
+                            "claude_bias": claude_opinion_dict.get("recommendation") if claude_opinion_dict else None,
+                            "models_agree": final.get("models_agree"),
+                            "news_freshness": base_signal.metrics.get("news_freshness"),
+                            "reason": final["reason"], "scenario_id": sid,
+                        })
 
             duration = (datetime.now() - start).total_seconds()
-            logger.info(f"Cycle: {total_trades} trades | {duration:.1f}s | Letta: {len(self.letta.rules)} rules learned")
+            logger.info(f"Cycle: {total_trades} trades | {duration:.1f}s | Letta rules: {len(self.letta.rules)}")
             self.scenario_runner.save_scenario_snapshots()
             self.push_logs_to_github()
 
         except Exception as e:
             logger.error(f"Cycle error: {e}", exc_info=True)
-
-    # ==================== NEWS SCAN ====================
 
     def scan_news(self):
         now = datetime.now()
@@ -341,8 +323,6 @@ class TradeLab:
                     logger.info(f"BREAKING: {symbol} — {news[0]['title'][:100]}")
             except: pass
 
-    # ==================== GIT PUSH ====================
-
     def push_logs_to_github(self):
         try:
             import subprocess
@@ -354,32 +334,27 @@ class TradeLab:
                 subprocess.run(["git","push"], capture_output=True, timeout=15)
         except: pass
 
-    # ==================== START ====================
-
     def start(self):
-        self.running = True
         print(BANNER)
-        logger.info(f"AI: DeepSeek + Claude Haiku + Letta (Self-Learning)")
+        logger.info(f"Stocks: Z-Score + Kelly + Sharpe | Crypto: Pennies Scalping 24/7")
         logger.info(f"Symbols: {len(self.config.data.symbols)} | Scenarios: {len(self.scenario_runner.scenarios)}")
-        logger.info(f"Risk Profiles: Conservative | Balanced | Aggressive")
-        logger.info(f"Letta Memory: {len(self.letta.rules)} learned rules loaded")
-        logger.info(f"Market: {'OPEN' if self.is_market_open() else 'CLOSED'}")
-        logger.info("24/7 Self-Learning Loop starting...\n")
+        logger.info(f"Letta Memory: {len(self.letta.rules)} rules")
+        logger.info("24/7 Trading Loop starting...\n")
         self.run_cycle()
 
         try:
             while self.running:
                 now = datetime.now()
-                if self.is_market_open():
-                    if now.minute % 15 == 0: self.run_cycle()
+                if now.minute % 15 == 0: self.run_cycle()
                 else:
                     self.scan_news()
-                    if now.minute == 0: self.run_cycle()
                 time.sleep(60)
         except KeyboardInterrupt:
-            logger.info("Shutting down...")
-            logger.info(f"Letta learned {len(self.letta.rules)} rules from {len(self.letta.trade_history)} trades")
-            self.scenario_runner.print_comparison()
+            self._shutdown()
+
+    def _shutdown(self):
+        logger.info("Shutting down...")
+        self.scenario_runner.print_comparison()
 
 
 def main():

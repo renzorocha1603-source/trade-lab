@@ -7,6 +7,7 @@ load_dotenv()
 
 @dataclass
 class DeepSeekConfig:
+    """DeepSeek - Primary AI for all daily analysis"""
     api_key: str = field(default_factory=lambda: os.getenv("DEEPSEEK_API_KEY", ""))
     model: str = "deepseek-chat"
     temperature: float = 0.3
@@ -17,6 +18,7 @@ class DeepSeekConfig:
 
 @dataclass
 class ClaudeConfig:
+    """Claude Haiku - Premium backup for extreme events only"""
     api_key: str = field(default_factory=lambda: os.getenv("CLAUDE_API_KEY", ""))
     model_name: str = "claude-haiku-3-5-20241022"
     temperature: float = 0.3
@@ -32,6 +34,8 @@ class StrategyConfig:
     sell_fraction: float = 0.10
     initial_position_pct: float = 0.10
     risk_profile: str = "balanced"
+    z_score_lookback: int = 252
+    sharpe_lookback: int = 60
 
 @dataclass
 class RiskConfig:
@@ -74,6 +78,7 @@ class DataConfig:
 
 @dataclass
 class NewsConfig:
+    """Multi-source news configuration"""
     finnhub_api_key: str = field(default_factory=lambda: os.getenv("FINNHUB_API_KEY", ""))
     alpha_vantage_api_key: str = field(default_factory=lambda: os.getenv("ALPHA_VANTAGE_API_KEY", ""))
     max_news_age_minutes: int = 30
@@ -81,9 +86,30 @@ class NewsConfig:
     min_confidence_for_stale_news: float = 0.3
 
 @dataclass
+class CryptoConfig:
+    """Crypto-specific configuration"""
+    binance_api_key: str = ""
+    binance_api_secret: str = ""
+    use_binance_public: bool = True
+    atr_multiplier_target: float = 1.5
+    atr_multiplier_stop: float = 1.0
+    max_hold_hours: float = 4.0
+    kelly_fraction: float = 0.3
+    min_volume_multiplier: float = 1.5
+    fee_pct: float = 0.003
+    min_net_ev: float = 0.005
+    btc_timeframe: str = "1h"
+    eth_timeframe: str = "15m"
+    crypto_symbols: List[str] = field(default_factory=lambda: ["BTC-USD", "ETH-USD"])
+
+@dataclass
 class RiskProfileConfig:
     conservative: dict = field(default_factory=lambda: {
         "name": "Conservative",
+        "z_score_threshold": -2.0,
+        "kelly_fraction": 0.25,
+        "ev_minimum": 0.005,
+        "sharpe_minimum": 0.8,
         "use_rsi_filter": True,
         "rsi_threshold_modifier": 5,
         "use_atr_filter": True,
@@ -96,6 +122,10 @@ class RiskProfileConfig:
     })
     balanced: dict = field(default_factory=lambda: {
         "name": "Balanced",
+        "z_score_threshold": -1.5,
+        "kelly_fraction": 0.50,
+        "ev_minimum": 0.003,
+        "sharpe_minimum": 0.5,
         "use_rsi_filter": True,
         "rsi_threshold_modifier": 0,
         "use_atr_filter": False,
@@ -108,6 +138,10 @@ class RiskProfileConfig:
     })
     aggressive: dict = field(default_factory=lambda: {
         "name": "Aggressive",
+        "z_score_threshold": -1.0,
+        "kelly_fraction": 1.0,
+        "ev_minimum": 0.0,
+        "sharpe_minimum": 0.0,
         "use_rsi_filter": False,
         "rsi_threshold_modifier": -10,
         "use_atr_filter": False,
@@ -115,6 +149,22 @@ class RiskProfileConfig:
         "max_sector_positions": 99,
         "cash_reserve_pct": 0.05,
         "max_positions": 10,
+        "can_trade_us": True,
+        "min_notional": 1.0,
+    })
+    pennies: dict = field(default_factory=lambda: {
+        "name": "Pennies",
+        "z_score_threshold": -1.5,
+        "kelly_fraction": 0.30,
+        "ev_minimum": 0.005,
+        "sharpe_minimum": 0.3,
+        "use_rsi_filter": False,
+        "rsi_threshold_modifier": 0,
+        "use_atr_filter": True,
+        "use_sector_limits": False,
+        "max_sector_positions": 99,
+        "cash_reserve_pct": 0.05,
+        "max_positions": 5,
         "can_trade_us": True,
         "min_notional": 1.0,
     })
@@ -126,6 +176,7 @@ class Config:
     strategy: StrategyConfig = field(default_factory=StrategyConfig)
     risk: RiskConfig = field(default_factory=RiskConfig)
     risk_profile: RiskProfileConfig = field(default_factory=RiskProfileConfig)
+    crypto: CryptoConfig = field(default_factory=CryptoConfig)
     schedule: ScheduleConfig = field(default_factory=ScheduleConfig)
     broker: BrokerConfig = field(default_factory=BrokerConfig)
     data: DataConfig = field(default_factory=DataConfig)
