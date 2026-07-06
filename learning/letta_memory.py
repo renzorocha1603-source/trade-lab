@@ -2,6 +2,7 @@
 Letta Memory v2.5 — Best of Both Worlds
 Clean structure + Rich multi-condition learning + Time decay + Category/Regime tracking
 Learns from DeepSeek + Claude signals, market regimes, symbol categories, and model agreement.
+Letta is the FINAL DECISION MAKER — combines all signals with learned memory.
 """
 
 import json
@@ -360,6 +361,117 @@ class LettaMemory:
             "avg_pnl": best.get("avg_pnl", 0),
             "rules_matched": len(applicable),
             "top_rules": [{"id": r["id"], "conf": r["confidence"], "desc": r["description"][:80]} for r in applicable[:3]]
+        }
+
+    # ==================== FINAL DECISION ENGINE ====================
+
+    def make_final_decision(self, symbol: str, base_signal, deepseek_signal: dict = None,
+                           claude_opinion: dict = None, current_price: float = 0,
+                           macro: dict = None) -> dict:
+        """
+        Letta is the final decision maker.
+        Combines all signals with learned memory to produce the best action.
+        
+        Weights:
+        - Base Strategy: 40%
+        - DeepSeek Math: 30%
+        - Claude Psychology: 15%
+        - Letta Memory: 15%
+        """
+        
+        # Extract values from signals
+        base_action = base_signal.action.value if hasattr(base_signal, 'action') else str(base_signal.get('action', 'HOLD'))
+        base_confidence = base_signal.confidence if hasattr(base_signal, 'confidence') else base_signal.get('confidence', 0.5)
+        base_qty = base_signal.quantity_pct if hasattr(base_signal, 'quantity_pct') else base_signal.get('quantity_pct', 0.05)
+        base_reason = base_signal.reason if hasattr(base_signal, 'reason') else base_signal.get('reason', '')
+
+        ds_score = deepseek_signal.get('sentiment_score', 0) if deepseek_signal else 0
+        ds_confidence = deepseek_signal.get('confidence', 0.5) if deepseek_signal else 0
+        ds_recommendation = deepseek_signal.get('recommendation', 'no_change') if deepseek_signal else 'no_change'
+
+        claude_sentiment = claude_opinion.get('sentiment_score', 0) if claude_opinion else 0
+        claude_confidence = claude_opinion.get('confidence', 0.5) if claude_opinion else 0
+        claude_recommendation = claude_opinion.get('recommendation', 'no_change') if claude_opinion else 'no_change'
+
+        # Get Letta's learned advice
+        rsi = base_signal.metrics.get('rsi', 50) if hasattr(base_signal, 'metrics') and base_signal.metrics else 50
+        vix = macro.get('vix', 20) if macro else 20
+        news_freshness = base_signal.metrics.get('news_freshness', 0.5) if hasattr(base_signal, 'metrics') and base_signal.metrics else 0.5
+        
+        letta_advice = self.get_advice(
+            symbol=symbol, rsi=rsi, vix=vix,
+            deepseek_score=ds_score, claude_sentiment=claude_sentiment,
+            news_freshness=news_freshness
+        )
+
+        # Calculate weighted scores
+        base_score = 1.0 if base_action == "BUY" else (-1.0 if base_action == "SELL" else 0.0)
+        base_weighted = base_score * base_confidence * 0.40
+
+        ds_weighted = ds_score * ds_confidence * 0.30
+
+        claude_weighted = claude_sentiment * claude_confidence * 0.15
+
+        letta_score = 0.0
+        letta_confidence = 0.0
+        letta_reason = ""
+        if letta_advice:
+            if letta_advice.get("advice") in ["amplify", "amplify_buy"]:
+                letta_score = 0.5
+            elif letta_advice.get("advice") in ["dampen", "dampen_buy", "reduce_position"]:
+                letta_score = -0.3
+            letta_confidence = letta_advice.get("confidence", 0.5)
+            letta_reason = letta_advice.get("reason", "")
+        letta_weighted = letta_score * letta_confidence * 0.15
+
+        # Final score
+        final_score = base_weighted + ds_weighted + claude_weighted + letta_weighted
+
+        # Decision logic
+        if final_score > 0.25:
+            final_action = "BUY"
+            confidence_multiplier = min(1.0, max(0.3, abs(final_score)))
+            final_qty = base_qty * confidence_multiplier
+        elif final_score < -0.25:
+            final_action = "SELL"
+            confidence_multiplier = min(1.0, max(0.3, abs(final_score)))
+            final_qty = base_qty * confidence_multiplier
+        else:
+            final_action = "HOLD"
+            final_qty = 0.0
+            confidence_multiplier = 0.0
+
+        # Build reason string
+        reasons = []
+        if base_action != "HOLD":
+            reasons.append(f"Strategy: {base_reason[:80]}")
+        if deepseek_signal:
+            reasons.append(f"DeepSeek: {ds_recommendation} ({ds_score:+.2f})")
+        if claude_opinion:
+            reasons.append(f"Claude: {claude_recommendation} ({claude_sentiment:+.2f})")
+        if letta_reason:
+            reasons.append(f"Letta: {letta_reason[:80]}")
+        reasons.append(f"Final score: {final_score:+.3f}")
+
+        # Track model agreement
+        ds_dir = "bullish" if ds_score > 0.2 else "bearish" if ds_score < -0.2 else "neutral"
+        cl_dir = "bullish" if claude_sentiment > 0.2 else "bearish" if claude_sentiment < -0.2 else "neutral"
+        models_agree = (ds_dir == cl_dir and ds_dir != "neutral")
+
+        return {
+            "action": final_action,
+            "quantity_pct": round(final_qty, 4),
+            "confidence": round(abs(final_score), 3),
+            "reason": " | ".join(reasons),
+            "final_score": round(final_score, 3),
+            "weights": {
+                "base": round(base_weighted, 3),
+                "deepseek": round(ds_weighted, 3),
+                "claude": round(claude_weighted, 3),
+                "letta": round(letta_weighted, 3),
+            },
+            "models_agree": models_agree,
+            "letta_rules_used": letta_advice.get("rules_matched", 0) if letta_advice else 0,
         }
 
     # ==================== STATISTICS ====================
