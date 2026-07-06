@@ -1,9 +1,3 @@
-"""
-Core 5/10 Strategy - Pure mathematical rule.
-Buy 5% more on dips, sell 10% on rallies.
-No AI, just math.
-"""
-
 import pandas as pd
 import numpy as np
 from dataclasses import dataclass
@@ -36,15 +30,7 @@ class StrategySignal:
 
 class FiveTenStrategy:
     """
-    5/10 Asymmetric Position Sizing Strategy.
-
-    Rules:
-    - 10-day return < -3% → BUY 5% more
-    - 10-day return > +5% → SELL 10%
-    - Otherwise → HOLD
-
-    Creates natural "buy low, sell high" rhythm.
-    Sell fraction (10%) > Buy fraction (5%) = profit asymmetry.
+    Enhanced 5/10 Asymmetric Strategy - Pure Mathematical Core
     """
 
     def __init__(self, config):
@@ -53,57 +39,91 @@ class FiveTenStrategy:
         self.profit_threshold = config.strategy.profit_threshold
         self.buy_fraction = config.strategy.buy_fraction
         self.sell_fraction = config.strategy.sell_fraction
+        self.vol_window = 20
+        self.max_position_pct = getattr(config.strategy, 'max_position_pct', 0.25)
+        self.min_volatility_filter = 0.60
 
     def calculate_return(self, price_series: pd.Series) -> Optional[float]:
         if len(price_series) < self.lookback + 1:
             return None
-        start = price_series.iloc[-(self.lookback + 1)]
-        end = price_series.iloc[-1]
-        if start <= 0:
+        start_price = price_series.iloc[-(self.lookback + 1)]
+        current_price = price_series.iloc[-1]
+        if start_price <= 0:
             return None
-        return (end - start) / start
+        return (current_price - start_price) / start_price
+
+    def calculate_volatility(self, price_series: pd.Series) -> float:
+        if len(price_series) < self.vol_window + 1:
+            return 0.0
+        returns = price_series.pct_change().dropna()
+        return returns.iloc[-self.vol_window:].std() * np.sqrt(252)
 
     def generate_signal(self, symbol: str, price_series: pd.Series,
-                       current_qty: float) -> StrategySignal:
-        period_return = self.calculate_return(price_series)
-        current_price = price_series.iloc[-1] if not price_series.empty else 0
+                       current_qty: float = 0) -> StrategySignal:
 
-        metrics = {"period_return": period_return, "current_price": current_price}
+        period_return = self.calculate_return(price_series)
+        volatility = self.calculate_volatility(price_series)
+        current_price = price_series.iloc[-1] if len(price_series) > 0 else 0
+
+        metrics = {
+            "period_return": period_return,
+            "volatility": volatility,
+            "current_price": current_price
+        }
+
+        if volatility > self.min_volatility_filter:
+            return StrategySignal(
+                symbol=symbol,
+                action=SignalAction.HOLD,
+                quantity_pct=0.0,
+                reason=f"High volatility filter ({volatility:.1%})",
+                confidence=0.85,
+                metrics=metrics
+            )
 
         if period_return is None:
             return StrategySignal(symbol=symbol, action=SignalAction.HOLD,
-                                  quantity_pct=0.0, reason="Insufficient data",
-                                  metrics=metrics)
+                                  quantity_pct=0.0, reason="Insufficient data", metrics=metrics)
 
         if period_return <= self.loss_threshold:
-            if current_qty == 0:
-                return StrategySignal(symbol=symbol, action=SignalAction.BUY,
-                    quantity_pct=1.0,
-                    reason=f"Initial entry: {period_return:.1%} decline in {self.lookback} days",
-                    confidence=0.85, metrics=metrics)
-            else:
-                return StrategySignal(symbol=symbol, action=SignalAction.BUY,
-                    quantity_pct=self.buy_fraction,
-                    reason=f"Dip buy: {period_return:.1%} (threshold: {self.loss_threshold:.1%})",
-                    confidence=0.75, metrics=metrics)
+            size = self.buy_fraction
+            if volatility > 0.35:
+                size *= 0.65
+            return StrategySignal(
+                symbol=symbol,
+                action=SignalAction.BUY,
+                quantity_pct=size,
+                reason=f"5/10 Dip Buy: {period_return:.1%} decline over {self.lookback} days",
+                confidence=0.78,
+                metrics=metrics
+            )
 
         elif period_return >= self.profit_threshold and current_qty > 0:
-            return StrategySignal(symbol=symbol, action=SignalAction.SELL,
+            return StrategySignal(
+                symbol=symbol,
+                action=SignalAction.SELL,
                 quantity_pct=self.sell_fraction,
-                reason=f"Profit take: {period_return:.1%} (threshold: {self.profit_threshold:.1%})",
-                confidence=0.75, metrics=metrics)
+                reason=f"5/10 Profit Take: {period_return:.1%} gain",
+                confidence=0.82,
+                metrics=metrics
+            )
 
-        return StrategySignal(symbol=symbol, action=SignalAction.HOLD,
+        return StrategySignal(
+            symbol=symbol,
+            action=SignalAction.HOLD,
             quantity_pct=0.0,
-            reason=f"No signal: {period_return:.1%} within range",
-            confidence=0.9, metrics=metrics)
+            reason=f"No signal: {period_return:.1%} within neutral range",
+            confidence=0.9,
+            metrics=metrics
+        )
 
     def get_stats(self) -> dict:
         return {
-            "name": "5/10 Asymmetric Strategy",
+            "strategy": "Enhanced 5/10 Asymmetric",
             "lookback_days": self.lookback,
             "loss_threshold": f"{self.loss_threshold:.1%}",
             "profit_threshold": f"{self.profit_threshold:.1%}",
             "buy_fraction": f"{self.buy_fraction:.1%}",
-            "sell_fraction": f"{self.sell_fraction:.1%}"
+            "sell_fraction": f"{self.sell_fraction:.1%}",
+            "volatility_window": self.vol_window
         }
