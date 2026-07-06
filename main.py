@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
 """
-TRADE LAB v2.4 — Letta as Final Decision Maker
+TRADE LAB v2.5 — Letta as Final Decision Maker
 DeepSeek (Math) + Claude (Psychology) + Letta (Brain + Memory)
 Multi-Scenario · 3 Risk Profiles · 24/7 Self-Learning
 Enhanced Risk Manager with circuit breakers
+All module signatures aligned — Grok optimized
 """
 
 import os, sys, time, signal, logging
@@ -27,7 +28,7 @@ logger = logging.getLogger("TradeLab")
 
 BANNER = """
 ╔══════════════════════════════════════════════════════════════╗
-║           TRADE LAB v2.4 — SELF-LEARNING AI                ║
+║           TRADE LAB v2.5 — SELF-LEARNING AI                ║
 ║   DeepSeek (Math) • Claude (Psychology) • Letta (Brain)    ║
 ║   5 Scenarios · 3 Risk Profiles · 24/7 Operation           ║
 ╚══════════════════════════════════════════════════════════════╝
@@ -62,7 +63,7 @@ class TradeLab:
             "consumer": ["WMT"],
         }
 
-        logger.info(f"TradeLab v2.4 | Letta Brain | {len(self.letta.rules)} rules loaded")
+        logger.info(f"TradeLab v2.5 | Letta Brain | {len(self.letta.rules)} rules loaded")
 
     # ==================== MARKET HOURS ====================
 
@@ -156,7 +157,6 @@ class TradeLab:
             prices = self.data.get_live_prices()
             if not prices: return
 
-            # 1. Letta learns from past trade outcomes
             self.letta.check_outcomes(prices)
 
             macro = self.get_macro_context()
@@ -174,7 +174,6 @@ class TradeLab:
 
                 rsi = self.calculate_rsi(hist.values)
 
-                # 2. Base strategy signal
                 base_signal = self.strategy.generate_signal(symbol, hist, 0)
                 if base_signal.action == SignalAction.HOLD: continue
                 if not is_market and base_signal.action == SignalAction.BUY: continue
@@ -183,7 +182,6 @@ class TradeLab:
                     base_signal.metrics = {}
                 base_signal.metrics["rsi"] = rsi
 
-                # 3. AI Analysis
                 deepseek_signal_dict = None
                 claude_opinion_dict = None
 
@@ -194,28 +192,41 @@ class TradeLab:
                     news_freshness = self.data.get_news_freshness_factor(news_items)
                     base_signal.metrics["news_freshness"] = news_freshness
 
+                    # FIX 1: Updated DeepSeek call with new signature
                     if self.deepseek:
-                        raw_ds = self.deepseek.analyze(symbol, price_change, headlines, 0.02,
-                            rsi=rsi, volume_trend="normal", ma_distance=0, macro_context=macro)
+                        raw_ds = self.deepseek.analyze(
+                            symbol=symbol,
+                            history=hist,
+                            current_price=current_price,
+                            macro=macro,
+                            rsi=rsi,
+                            atr=0.02
+                        )
                         if raw_ds:
                             deepseek_signal_dict = {
-                                "sentiment_score": raw_ds.sentiment_score,
-                                "confidence": raw_ds.confidence,
-                                "recommendation": raw_ds.recommendation,
-                                "key_findings": raw_ds.key_findings,
+                                "sentiment_score": raw_ds.get("sentiment_score", 0),
+                                "confidence": raw_ds.get("confidence", 0.5),
+                                "recommendation": raw_ds.get("recommendation", "no_change"),
+                                "key_findings": raw_ds.get("key_findings", ""),
                             }
 
+                    # FIX 2: Updated Claude call — is_extreme instead of is_extreme_event
                     if self.claude and abs(price_change) > 0.10:
-                        raw_cl = self.claude.analyze(symbol, price_change, headlines, 0.02, is_extreme_event=True)
+                        raw_cl = self.claude.analyze(
+                            symbol=symbol,
+                            price_change=price_change,
+                            headlines=headlines,
+                            volatility=0.02,
+                            is_extreme=True
+                        )
                         if raw_cl:
                             claude_opinion_dict = {
-                                "sentiment_score": raw_cl.sentiment_score,
-                                "confidence": raw_cl.confidence,
-                                "recommendation": raw_cl.recommendation,
-                                "reasoning": raw_cl.reasoning,
+                                "sentiment_score": raw_cl.get("sentiment_score", 0),
+                                "confidence": raw_cl.get("confidence", 0.5),
+                                "recommendation": raw_cl.get("recommendation", "no_change"),
+                                "reasoning": raw_cl.get("reasoning", ""),
                             }
 
-                # 4. LETTA MAKES THE FINAL DECISION
                 final = self.letta.make_final_decision(
                     symbol=symbol,
                     base_signal=base_signal,
@@ -227,7 +238,6 @@ class TradeLab:
 
                 if final["action"] == "HOLD": continue
 
-                # 5. Execute in each scenario with risk checks
                 for scenario in self.scenario_runner.scenarios:
                     sid = scenario["id"]
                     profile = self.get_risk_profile(sid)
@@ -244,7 +254,6 @@ class TradeLab:
                     qty = final["quantity_pct"]
                     proposed_value = qty * current_price * fx_rate if fx_rate > 0 else 0
 
-                    # Risk check using new RiskManager
                     safe, reason = self.risk.can_execute(
                         decision=final,
                         symbol=symbol,
@@ -258,7 +267,6 @@ class TradeLab:
                         logger.warning(f"Risk blocked: {reason} for {sid}")
                         continue
 
-                    # Scenario-specific filters
                     if pos_count >= profile["max_positions"]: continue
                     if not profile["can_trade_us"] and not self.is_canadian_or_crypto(symbol): continue
 
@@ -274,7 +282,6 @@ class TradeLab:
                         entry["trades"] += 1
                         logger.info(f"[{profile['name']}] {final['action']} {order.quantity:.4f} {symbol} @ ${order.filled_price_usd:.2f} | Score: {final['final_score']:.3f}")
 
-                        # 6. Remember for future learning
                         self.letta.remember_trade({
                             "symbol": symbol,
                             "action": final["action"],
@@ -307,8 +314,6 @@ class TradeLab:
         except Exception as e:
             logger.error(f"Cycle error: {e}", exc_info=True)
 
-    # ==================== NEWS SCAN ====================
-
     def scan_news(self):
         now = datetime.now()
         if self.last_news_scan and (now - self.last_news_scan).seconds < 900: return
@@ -320,8 +325,6 @@ class TradeLab:
                     logger.info(f"BREAKING: {symbol} — {news[0]['title'][:100]}")
             except: pass
 
-    # ==================== GIT PUSH ====================
-
     def push_logs_to_github(self):
         try:
             import subprocess
@@ -332,8 +335,6 @@ class TradeLab:
             if "nothing to commit" not in r.stdout.decode() and "nothing to commit" not in r.stderr.decode():
                 subprocess.run(["git","push"], capture_output=True, timeout=15)
         except: pass
-
-    # ==================== START ====================
 
     def start(self):
         print(BANNER)
