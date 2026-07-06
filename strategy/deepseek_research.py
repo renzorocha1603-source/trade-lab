@@ -42,7 +42,6 @@ class DeepSeekResearch:
         if not self.api_key or not symbol:
             return None
 
-        # Create cache key based on key inputs
         cache_key = hashlib.md5(f"{symbol}_{current_price:.4f}_{rsi or 50:.1f}_{hash(str(macro))}".encode()).hexdigest()
 
         if self.cache_enabled and cache_key in self._cache:
@@ -50,21 +49,27 @@ class DeepSeekResearch:
             if datetime.now() - cached_time < self._cache_ttl:
                 return result
 
-        # Prepare technical context
         period_return = self._calculate_return(history)
         volatility = self._calculate_volatility(history)
         ma_distance = self._calculate_ma_distance(history)
+
+        # Build safe strings to avoid f-string formatting bugs
+        return_str = f"{period_return:+.2%}" if period_return is not None else 'N/A'
+        vol_str = f"{volatility:.1%}" if volatility else 'N/A'
+        rsi_str = f"{rsi:.1f}" if rsi else 'N/A'
+        atr_str = f"{atr:.3f}" if atr else 'N/A'
+        ma_str = f"{ma_distance:+.2f}%" if ma_distance else 'N/A'
 
         prompt = f"""You are an elite quantitative trading analyst. Analyze {symbol} using ONLY mathematical and technical facts.
 
 CURRENT DATA:
 - Symbol: {symbol}
 - Current Price: ${current_price:.2f}
-- 10-day Return: {period_return:+.2% if period_return is not None else 'N/A'}
-- Annualized Volatility: {volatility:.1% if volatility else 'N/A'}
-- RSI (14): {rsi:.1f if rsi else 'N/A'}
-- ATR (normalized): {atr:.3f if atr else 'N/A'}
-- Distance from 50-day MA: {ma_distance:+.2f}% if ma_distance else 'N/A'
+- 10-day Return: {return_str}
+- Annualized Volatility: {vol_str}
+- RSI (14): {rsi_str}
+- ATR (normalized): {atr_str}
+- Distance from 50-day MA: {ma_str}
 
 MACRO CONTEXT:
 - VIX: {macro.get('vix', 'N/A') if macro else 'N/A'}
@@ -75,13 +80,13 @@ Evaluate if this is a statistically attractive setup.
 Be conservative. Only recommend action when there is clear edge.
 
 Respond with **valid JSON only**:
-{{
+{{{{
   "sentiment_score": <float from -1.0 (strong sell) to +1.0 (strong buy)>,
   "confidence": <float 0.0-1.0>,
   "recommendation": "amplify_buy | dampen_buy | amplify_sell | dampen_sell | no_change",
   "key_findings": "one short sentence citing numbers (RSI, vol, return, etc.)",
   "horizon": "short | medium | long"
-}}"""
+}}}}"""
 
         for attempt in range(self.max_retries):
             try:
@@ -101,7 +106,6 @@ Respond with **valid JSON only**:
                 )
 
                 content = response.json()["choices"][0]["message"]["content"].strip()
-                # Clean possible markdown
                 if "```json" in content:
                     content = content.split("```json")[1].split("```")[0]
                 elif "```" in content:
@@ -129,23 +133,18 @@ Respond with **valid JSON only**:
 
         return None
 
-    # ==================== HELPER METHODS ====================
-
     def _calculate_return(self, prices: pd.Series) -> Optional[float]:
-        """10-day period return"""
         if len(prices) < 11:
             return None
         return (prices.iloc[-1] - prices.iloc[-11]) / prices.iloc[-11]
 
     def _calculate_volatility(self, prices: pd.Series) -> float:
-        """Annualized volatility"""
         if len(prices) < 20:
             return 0.0
         returns = prices.pct_change().dropna()
         return returns.std() * np.sqrt(252)
 
     def _calculate_ma_distance(self, prices: pd.Series) -> float:
-        """Distance from 50-day moving average in percent"""
         if len(prices) < 50:
             return 0.0
         ma50 = prices.iloc[-50:].mean()
