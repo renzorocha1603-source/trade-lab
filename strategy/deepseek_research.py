@@ -1,3 +1,9 @@
+"""
+DeepSeek Research Analyst - Elite Quantitative Analysis
+Pure Math & Technical Focus — No psychology, no narratives.
+Grok-optimized prompt with statistical rigor.
+"""
+
 import json
 import time
 import hashlib
@@ -5,6 +11,8 @@ from datetime import datetime, timedelta
 from typing import Optional, List, Dict
 import logging
 import requests
+import pandas as pd
+import numpy as np
 
 logger = logging.getLogger(__name__)
 
@@ -19,16 +27,16 @@ class DeepSeekResearch:
         self.max_retries = config.deepseek.max_retries
         self.cache_enabled = config.deepseek.cache_enabled
         self.cache_ttl_hours = config.deepseek.cache_ttl_hours
-        
+
         self._cache = {}
         self._cache_ttl = timedelta(hours=self.cache_ttl_hours)
 
-        if self.api_key and self.api_key not in ["", "your_key_here"]:
-            logger.info(f"✅ DeepSeek Research Online (model: {self.model})")
+        if self.api_key and self.api_key not in ["", "your_key_here", "your_deepseek_key_here"]:
+            logger.info(f"DeepSeek Research Online (model: {self.model})")
         else:
-            logger.warning("⚠️  DeepSeek Research OFFLINE - No API key")
+            logger.warning("DeepSeek Research OFFLINE - No API key")
 
-    def analyze(self, symbol: str, history: pd.Series, current_price: float, 
+    def analyze(self, symbol: str, history: pd.Series, current_price: float,
                 macro: dict = None, rsi: float = None, atr: float = None) -> Optional[dict]:
         """Pure mathematical/technical analysis"""
         if not self.api_key or not symbol:
@@ -121,17 +129,24 @@ Respond with **valid JSON only**:
 
         return None
 
-    # Helper methods
+    # ==================== HELPER METHODS ====================
+
     def _calculate_return(self, prices: pd.Series) -> Optional[float]:
-        if len(prices) < 11: return None
+        """10-day period return"""
+        if len(prices) < 11:
+            return None
         return (prices.iloc[-1] - prices.iloc[-11]) / prices.iloc[-11]
 
     def _calculate_volatility(self, prices: pd.Series) -> float:
-        if len(prices) < 20: return 0.0
+        """Annualized volatility"""
+        if len(prices) < 20:
+            return 0.0
         returns = prices.pct_change().dropna()
         return returns.std() * np.sqrt(252)
 
     def _calculate_ma_distance(self, prices: pd.Series) -> float:
-        if len(prices) < 50: return 0.0
+        """Distance from 50-day moving average in percent"""
+        if len(prices) < 50:
+            return 0.0
         ma50 = prices.iloc[-50:].mean()
         return (prices.iloc[-1] - ma50) / ma50 * 100
