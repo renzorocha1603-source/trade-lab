@@ -63,8 +63,6 @@ class TradeLab:
 
         logger.info(f"TradeLab v2.4 | Letta Brain | {len(self.letta.rules)} rules loaded")
 
-    # ==================== MARKET HOURS ====================
-
     def is_market_open(self) -> bool:
         now = datetime.now()
         if now.weekday() >= 5: return False
@@ -104,8 +102,6 @@ class TradeLab:
                 return getattr(self.config.risk_profile, profile_name, self.config.risk_profile.balanced)
         return self.config.risk_profile.balanced
 
-    # ==================== TECHNICALS ====================
-
     def calculate_rsi(self, prices, period=14) -> float:
         if len(prices) < period + 1: return 50.0
         try:
@@ -136,8 +132,6 @@ class TradeLab:
         except: pass
         return context
 
-    # ==================== TRADING CYCLE ====================
-
     def run_cycle(self):
         start = datetime.now()
         self.cycle_count += 1
@@ -153,9 +147,7 @@ class TradeLab:
             prices = self.data.get_live_prices()
             if not prices: return
 
-            # 1. Letta learns from past trade outcomes
             self.letta.check_outcomes(prices)
-
             macro = self.get_macro_context()
             vix = macro.get("vix", 20)
             total_trades = 0
@@ -171,18 +163,14 @@ class TradeLab:
 
                 rsi = self.calculate_rsi(hist.values)
 
-                # 2. Base strategy signal
-                base_signal = self.strategy.generate_signal(symbol, hist, 0, current_price)
+                base_signal = self.strategy.generate_signal(symbol, hist, 0)
                 if base_signal.action == SignalAction.HOLD: continue
-
                 if not is_market and base_signal.action == SignalAction.BUY: continue
 
-                # Add RSI to metrics for Letta
                 if base_signal.metrics is None:
                     base_signal.metrics = {}
                 base_signal.metrics["rsi"] = rsi
 
-                # 3. AI Analysis
                 deepseek_signal_dict = None
                 claude_opinion_dict = None
 
@@ -214,7 +202,6 @@ class TradeLab:
                                 "reasoning": raw_cl.reasoning,
                             }
 
-                # 4. LETTA MAKES THE FINAL DECISION
                 final = self.letta.make_final_decision(
                     symbol=symbol,
                     base_signal=base_signal,
@@ -226,7 +213,6 @@ class TradeLab:
 
                 if final["action"] == "HOLD": continue
 
-                # 5. Execute in each scenario
                 for scenario in self.scenario_runner.scenarios:
                     sid = scenario["id"]
                     profile = self.get_risk_profile(sid)
@@ -238,7 +224,6 @@ class TradeLab:
                     broker = entry["broker"]
                     broker.set_fx_rate(fx_rate)
 
-                    # Risk checks
                     pos_count = len([p for p in broker.positions.values() if p.quantity > 0])
                     if pos_count >= profile["max_positions"]: continue
                     if not profile["can_trade_us"] and not self.is_canadian_or_crypto(symbol): continue
@@ -256,7 +241,6 @@ class TradeLab:
                         entry["trades"] += 1
                         logger.info(f"[{profile['name']}] {final['action']} {order.quantity:.4f} {symbol} @ ${order.filled_price_usd:.2f} | Score: {final['final_score']:.3f}")
 
-                        # 6. Remember for future learning
                         self.letta.remember_trade({
                             "symbol": symbol,
                             "action": final["action"],
@@ -278,15 +262,16 @@ class TradeLab:
                             order.filled_price_usd, final["reason"], True, fx_rate, order.fx_fee_cad)
 
             duration = (datetime.now() - start).total_seconds()
-            logger.info(f"Cycle: {total_trades} trades | {duration:.1f}s | Letta: {len(self.letta.rules)} rules | Score range: {final.get('final_score', 0):+.3f}" if total_trades > 0 else f"Cycle: 0 trades | {duration:.1f}s")
+            if total_trades > 0:
+                logger.info(f"Cycle: {total_trades} trades | {duration:.1f}s | Letta: {len(self.letta.rules)} rules | Score: {final['final_score']:+.3f}")
+            else:
+                logger.info(f"Cycle: 0 trades | {duration:.1f}s")
 
             self.scenario_runner.save_scenario_snapshots()
             self.push_logs_to_github()
 
         except Exception as e:
             logger.error(f"Cycle error: {e}", exc_info=True)
-
-    # ==================== NEWS SCAN ====================
 
     def scan_news(self):
         now = datetime.now()
@@ -299,8 +284,6 @@ class TradeLab:
                     logger.info(f"BREAKING: {symbol} — {news[0]['title'][:100]}")
             except: pass
 
-    # ==================== GIT PUSH ====================
-
     def push_logs_to_github(self):
         try:
             import subprocess
@@ -311,8 +294,6 @@ class TradeLab:
             if "nothing to commit" not in r.stdout.decode() and "nothing to commit" not in r.stderr.decode():
                 subprocess.run(["git","push"], capture_output=True, timeout=15)
         except: pass
-
-    # ==================== START ====================
 
     def start(self):
         print(BANNER)
