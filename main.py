@@ -1,10 +1,8 @@
 #!/usr/bin/env python3
 """
-TRADE LAB v2.3 — Self-Learning AI Trading
-DeepSeek (Research) + Claude (Psychology) + Letta (Learning Memory)
-3 Risk Profiles · 5 Scenarios · Self-Improving Over Time
-Finnhub + Alpha Vantage + Coinbase + Yahoo
-CAD Base · 24/7 Market-Hours Loop
+TRADE LAB v2.4 — Letta as Final Decision Maker
+DeepSeek (Math) + Claude (Psychology) + Letta (Brain + Memory)
+Multi-Scenario · 3 Risk Profiles · 24/7 Self-Learning
 """
 
 import os, sys, time, signal, logging
@@ -17,7 +15,6 @@ from data.pipeline import DataPipeline
 from strategy.five_ten_rule import FiveTenStrategy, SignalAction
 from strategy.deepseek_research import DeepSeekResearch
 from strategy.claude_psychology import ClaudePsychology
-from strategy.signal_merger import SignalMerger
 from risk.manager import RiskManager
 from portfolio.tracker import PortfolioTracker
 from simulator.runner import ScenarioRunner
@@ -28,12 +25,11 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s | %(levelname)-8s | 
 logger = logging.getLogger("TradeLab")
 
 BANNER = """
-╔══════════════════════════════════════════════════════╗
-║   TRADE LAB v2.3 — Self-Learning AI Trading        ║
-║   DeepSeek · Claude · Letta (Learning Memory)      ║
-║   Conservative · Balanced · Aggressive             ║
-║   5 Scenarios · Self-Improving Over Time           ║
-╚══════════════════════════════════════════════════════╝
+╔══════════════════════════════════════════════════════════════╗
+║           TRADE LAB v2.4 — SELF-LEARNING AI                ║
+║   DeepSeek (Math) • Claude (Psychology) • Letta (Brain)    ║
+║   5 Scenarios · 3 Risk Profiles · 24/7 Operation           ║
+╚══════════════════════════════════════════════════════════════╝
 """
 
 class TradeLab:
@@ -43,7 +39,6 @@ class TradeLab:
         self.strategy = FiveTenStrategy(config)
         self.deepseek = DeepSeekResearch(config) if config.use_ai else None
         self.claude = ClaudePsychology(config) if config.use_ai else None
-        self.merger = SignalMerger(config)
         self.risk = RiskManager(config)
         self.tracker = PortfolioTracker()
         self.scenario_runner = ScenarioRunner(config, self.data)
@@ -52,6 +47,7 @@ class TradeLab:
         self.cycle_count = 0
         self.last_news_scan = None
         self.last_tier3_scan = None
+        self.running = True
 
         self.sectors = {
             "tech": ["AAPL","MSFT","GOOGL","META","NVDA","TSLA","QQQ","XLK"],
@@ -65,9 +61,9 @@ class TradeLab:
             "consumer": ["WMT"],
         }
 
-        logger.info("Trade Lab v2.3 | Self-Learning AI | 5 Scenarios | 3 Risk Profiles")
+        logger.info(f"TradeLab v2.4 | Letta Brain | {len(self.letta.rules)} rules loaded")
 
-    # ==================== HELPERS ====================
+    # ==================== MARKET HOURS ====================
 
     def is_market_open(self) -> bool:
         now = datetime.now()
@@ -121,36 +117,6 @@ class TradeLab:
             return 100.0 - (100.0 / (1.0 + gains / losses))
         except: return 50.0
 
-    def calculate_atr(self, prices, period=14) -> float:
-        if len(prices) < period + 1: return 0.02
-        try:
-            import numpy as np
-            closes = prices[-period-1:]
-            tr = np.abs(np.diff(closes))
-            return np.mean(tr) / closes[-1] if closes[-1] > 0 else 0.02
-        except: return 0.02
-
-    def calculate_volume_trend(self, volumes=None) -> str:
-        if volumes is None or len(volumes) < 5: return "normal"
-        try:
-            recent = sum(volumes[-3:]) / 3
-            older = sum(volumes[-6:-3]) / 3 if len(volumes) >= 6 else recent
-            if recent > older * 1.3: return "increasing"
-            if recent < older * 0.7: return "decreasing"
-        except: pass
-        return "normal"
-
-    def calculate_ma_distance(self, prices) -> float:
-        if len(prices) < 50: return 0.0
-        try:
-            import numpy as np
-            ma50 = np.mean(prices[-50:])
-            return ((prices[-1] - ma50) / ma50) * 100
-        except: return 0.0
-
-    def get_dynamic_rsi_threshold(self, vix: float = 20, modifier: float = 0) -> float:
-        return 40 + (20 - vix) * 0.5 + modifier
-
     def get_macro_context(self) -> dict:
         context = {"vix": 20, "usdcad": "1.35", "regime": "normal"}
         try:
@@ -178,16 +144,16 @@ class TradeLab:
         is_market = self.is_market_open()
         mode = "MARKET HOURS" if is_market else "AFTER HOURS"
 
-        logger.info(f"{'='*60}")
+        logger.info(f"{'='*70}")
         logger.info(f"CYCLE #{self.cycle_count} | {mode} | {start.strftime('%Y-%m-%d %H:%M:%S')}")
-        logger.info(f"{'='*60}")
+        logger.info(f"{'='*70}")
 
         try:
             fx_rate = self.data.get_usd_cad_rate()
             prices = self.data.get_live_prices()
             if not prices: return
 
-            # Letta checks past trade outcomes and learns
+            # 1. Letta learns from past trade outcomes
             self.letta.check_outcomes(prices)
 
             macro = self.get_macro_context()
@@ -203,51 +169,64 @@ class TradeLab:
                 current_price = prices.get(symbol, 0)
                 if current_price <= 0: continue
 
-                atr = self.calculate_atr(hist.values)
                 rsi = self.calculate_rsi(hist.values)
-                volume_trend = self.calculate_volume_trend()
-                ma_distance = self.calculate_ma_distance(hist.values)
 
-                base_signal = self.strategy.generate_signal(symbol, hist, 0)
+                # 2. Base strategy signal
+                base_signal = self.strategy.generate_signal(symbol, hist, 0, current_price)
                 if base_signal.action == SignalAction.HOLD: continue
 
                 if not is_market and base_signal.action == SignalAction.BUY: continue
 
-                # AI analysis
-                deepseek_signal = None
-                claude_signal = None
-                news_freshness = 0.5
+                # Add RSI to metrics for Letta
+                if base_signal.metrics is None:
+                    base_signal.metrics = {}
+                base_signal.metrics["rsi"] = rsi
+
+                # 3. AI Analysis
+                deepseek_signal_dict = None
+                claude_opinion_dict = None
+
                 if self.config.use_ai:
                     price_change = base_signal.metrics.get("period_return", 0) or 0
                     news_items = self.data.get_news(symbol)
                     headlines = [n.get("title", "") for n in news_items]
                     news_freshness = self.data.get_news_freshness_factor(news_items)
+                    base_signal.metrics["news_freshness"] = news_freshness
+
                     if self.deepseek:
-                        deepseek_signal = self.deepseek.analyze(
-                            symbol, price_change, headlines, atr,
-                            rsi=rsi, volume_trend=volume_trend, ma_distance=ma_distance,
-                            macro_context=macro
-                        )
+                        raw_ds = self.deepseek.analyze(symbol, price_change, headlines, 0.02,
+                            rsi=rsi, volume_trend="normal", ma_distance=0, macro_context=macro)
+                        if raw_ds:
+                            deepseek_signal_dict = {
+                                "sentiment_score": raw_ds.sentiment_score,
+                                "confidence": raw_ds.confidence,
+                                "recommendation": raw_ds.recommendation,
+                                "key_findings": raw_ds.key_findings,
+                            }
+
                     if self.claude and abs(price_change) > 0.10:
-                        claude_signal = self.claude.analyze(symbol, price_change, headlines, atr, is_extreme_event=True)
+                        raw_cl = self.claude.analyze(symbol, price_change, headlines, 0.02, is_extreme_event=True)
+                        if raw_cl:
+                            claude_opinion_dict = {
+                                "sentiment_score": raw_cl.sentiment_score,
+                                "confidence": raw_cl.confidence,
+                                "recommendation": raw_cl.recommendation,
+                                "reasoning": raw_cl.reasoning,
+                            }
 
-                # Letta advice based on past learning
-                letta_advice = self.letta.get_advice(symbol, rsi, vix)
+                # 4. LETTA MAKES THE FINAL DECISION
+                final = self.letta.make_final_decision(
+                    symbol=symbol,
+                    base_signal=base_signal,
+                    deepseek_signal=deepseek_signal_dict,
+                    claude_opinion=claude_opinion_dict,
+                    current_price=current_price,
+                    macro=macro
+                )
 
-                final = self.merger.merge(base_signal, deepseek_signal, claude_signal, 0)
+                if final["action"] == "HOLD": continue
 
-                # Apply Letta learning on top
-                if letta_advice and final.action != "HOLD":
-                    if letta_advice["advice"] == "amplify_buy" and final.action == "BUY":
-                        final.quantity_pct = min(final.quantity_pct * 1.3, 1.0)
-                        final.reason += f" | Letta: {letta_advice['reason']} ({letta_advice['based_on']})"
-                    elif letta_advice["advice"] == "dampen_buy" and final.action == "BUY":
-                        final.quantity_pct = max(final.quantity_pct * 0.5, 0.01)
-                        final.reason += f" | Letta: {letta_advice['reason']} ({letta_advice['based_on']})"
-
-                if final.action == "HOLD": continue
-
-                # ====== EXECUTE TRADE IN EACH SCENARIO ======
+                # 5. Execute in each scenario
                 for scenario in self.scenario_runner.scenarios:
                     sid = scenario["id"]
                     profile = self.get_risk_profile(sid)
@@ -259,69 +238,48 @@ class TradeLab:
                     broker = entry["broker"]
                     broker.set_fx_rate(fx_rate)
 
-                    capital = broker.initial_capital_cad
-                    equity = broker.get_equity_cad(prices)
+                    # Risk checks
                     pos_count = len([p for p in broker.positions.values() if p.quantity > 0])
-                    cash_reserve = profile["cash_reserve_pct"]
-                    available_cash = broker.cash_cad * (1 - cash_reserve)
-                    max_pos = profile["max_positions"]
-
-                    # Position cap
-                    if pos_count >= max_pos: continue
-
-                    # US stock restriction
+                    if pos_count >= profile["max_positions"]: continue
                     if not profile["can_trade_us"] and not self.is_canadian_or_crypto(symbol): continue
 
-                    # Sector limit
-                    if profile["use_sector_limits"]:
-                        sector = self.get_symbol_sector(symbol)
-                        sector_count = sum(1 for sym, pos in broker.positions.items() 
-                                         if pos.quantity > 0 and self.get_symbol_sector(sym) == sector)
-                        if sector_count >= profile["max_sector_positions"]: continue
-
-                    # RSI filter
-                    if profile["use_rsi_filter"] and base_signal.action == SignalAction.BUY:
-                        rsi_threshold = self.get_dynamic_rsi_threshold(vix, profile["rsi_threshold_modifier"])
+                    if profile["use_rsi_filter"] and final["action"] == "BUY":
+                        rsi_threshold = 40 + (20 - vix) * 0.5 + profile["rsi_threshold_modifier"]
                         if rsi > rsi_threshold: continue
 
-                    # ATR filter
-                    if profile["use_atr_filter"] and base_signal.action == SignalAction.BUY:
-                        if atr > 0.05: continue
+                    qty = final["quantity_pct"]
+                    if qty <= 0: continue
 
-                    # Calculate quantity
-                    if final.action == "BUY":
-                        max_allocation = min(self.config.risk.max_position_size_cad, available_cash * 0.10)
-                        qty = max_allocation / (current_price * fx_rate) if fx_rate > 0 else 0
-                        notional_cad = qty * current_price * fx_rate
-                        if notional_cad < profile["min_notional"]: continue
-                        if qty <= 0: continue
-                    else:
-                        pos = broker.positions.get(symbol)
-                        if not pos or pos.quantity <= 0: continue
-                        qty = max(0.0001, pos.quantity * final.quantity_pct)
-
-                    # Execute
-                    order = broker.place_market_order(symbol, "buy" if final.action == "BUY" else "sell", qty, prices)
+                    order = broker.place_market_order(symbol, final["action"].lower(), qty, prices)
                     if order and order.status == "filled":
                         total_trades += 1
                         entry["trades"] += 1
-                        action_label = "BUY" if final.action == "BUY" else "SELL"
-                        
-                        # Record in Letta memory for future learning
-                        self.letta.remember_trade(
-                            symbol, action_label, order.filled_price_usd,
-                            rsi, vix, final.reason, sid
-                        )
-                        
-                        # Record in tracker
-                        self.tracker.record_trade(symbol, action_label, order.quantity,
-                            order.filled_price_usd, final.reason, final.ai_modified,
-                            fx_rate, order.fx_fee_cad)
-                        
-                        logger.info(f"[{profile['name']}] {action_label} {order.quantity:.4f} {symbol} @ ${order.filled_price_usd:.2f} | {sid} | Letta rules: {len(self.letta.rules)}")
+                        logger.info(f"[{profile['name']}] {final['action']} {order.quantity:.4f} {symbol} @ ${order.filled_price_usd:.2f} | Score: {final['final_score']:.3f}")
+
+                        # 6. Remember for future learning
+                        self.letta.remember_trade({
+                            "symbol": symbol,
+                            "action": final["action"],
+                            "price": order.filled_price_usd,
+                            "quantity_pct": final["quantity_pct"],
+                            "rsi": rsi,
+                            "vix": vix,
+                            "deepseek_score": deepseek_signal_dict.get("sentiment_score") if deepseek_signal_dict else None,
+                            "deepseek_confidence": deepseek_signal_dict.get("confidence") if deepseek_signal_dict else None,
+                            "claude_sentiment": claude_opinion_dict.get("sentiment_score") if claude_opinion_dict else None,
+                            "claude_bias": claude_opinion_dict.get("recommendation") if claude_opinion_dict else None,
+                            "models_agree": final.get("models_agree"),
+                            "news_freshness": base_signal.metrics.get("news_freshness"),
+                            "reason": final["reason"],
+                            "scenario_id": sid,
+                        })
+
+                        self.tracker.record_trade(symbol, final["action"], order.quantity,
+                            order.filled_price_usd, final["reason"], True, fx_rate, order.fx_fee_cad)
 
             duration = (datetime.now() - start).total_seconds()
-            logger.info(f"Cycle: {total_trades} trades | {duration:.1f}s | Letta: {len(self.letta.rules)} rules learned")
+            logger.info(f"Cycle: {total_trades} trades | {duration:.1f}s | Letta: {len(self.letta.rules)} rules | Score range: {final.get('final_score', 0):+.3f}" if total_trades > 0 else f"Cycle: 0 trades | {duration:.1f}s")
+
             self.scenario_runner.save_scenario_snapshots()
             self.push_logs_to_github()
 
@@ -357,12 +315,10 @@ class TradeLab:
     # ==================== START ====================
 
     def start(self):
-        self.running = True
         print(BANNER)
-        logger.info(f"AI: DeepSeek + Claude Haiku + Letta (Self-Learning)")
+        logger.info(f"AI: DeepSeek (Math) + Claude (Psychology) + Letta (Final Decision)")
         logger.info(f"Symbols: {len(self.config.data.symbols)} | Scenarios: {len(self.scenario_runner.scenarios)}")
-        logger.info(f"Risk Profiles: Conservative | Balanced | Aggressive")
-        logger.info(f"Letta Memory: {len(self.letta.rules)} learned rules loaded")
+        logger.info(f"Letta Memory: {len(self.letta.rules)} rules | {len(self.letta.trade_history)} trades remembered")
         logger.info(f"Market: {'OPEN' if self.is_market_open() else 'CLOSED'}")
         logger.info("24/7 Self-Learning Loop starting...\n")
         self.run_cycle()
@@ -377,9 +333,13 @@ class TradeLab:
                     if now.minute == 0: self.run_cycle()
                 time.sleep(60)
         except KeyboardInterrupt:
-            logger.info("Shutting down...")
-            logger.info(f"Letta learned {len(self.letta.rules)} rules from {len(self.letta.trade_history)} trades")
-            self.scenario_runner.print_comparison()
+            self._shutdown()
+
+    def _shutdown(self):
+        logger.info("Shutting down...")
+        stats = self.letta.get_stats()
+        logger.info(f"Letta final stats: {stats['total_rules']} rules | {stats['win_rate']}% win rate")
+        self.scenario_runner.print_comparison()
 
 
 def main():
