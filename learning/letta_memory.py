@@ -1,6 +1,7 @@
 """
-Letta Memory v2.4 — Self-learning trading memory with multi-signal analysis.
-Learns from DeepSeek + Claude agreement patterns, market regimes, and time decay.
+Letta Memory v2.5 — Best of Both Worlds
+Clean structure + Rich multi-condition learning + Time decay + Category/Regime tracking
+Learns from DeepSeek + Claude signals, market regimes, symbol categories, and model agreement.
 """
 
 import json
@@ -9,26 +10,26 @@ import logging
 from datetime import datetime, timedelta
 from typing import Optional, Dict, List, Any
 from collections import defaultdict
-import numpy as np
 
 logger = logging.getLogger(__name__)
 
 
 class LettaMemory:
-    """Advanced Self-improving Letta-style Trading Memory"""
+    """Advanced Self-improving Trading Memory — Clean & Powerful"""
 
     def __init__(self, config):
         self.config = config
         self.memory_dir = "logs"
-        self.memory_file = f"{self.memory_dir}/learned_rules.json"
-        self.trade_memory_file = f"{self.memory_dir}/trade_memory.json"
+        self.rules_file = f"{self.memory_dir}/learned_rules.json"
+        self.trades_file = f"{self.memory_dir}/trade_memory.json"
 
-        self.rules: List[dict] = self._load(self.memory_file, [])
-        self.trade_history: List[dict] = self._load(self.trade_memory_file, [])
+        self.rules: List[dict] = self._load(self.rules_file, [])
+        self.trade_history: List[dict] = self._load(self.trades_file, [])
 
-        self.max_trades = getattr(config, 'max_trades', 1000) if hasattr(config, 'max_trades') else 1000
-        self.min_confidence = 0.55
-        self.rule_decay_days = 90
+        self.max_trades = 1200
+        self.max_rules = 80
+        self.min_confidence = 0.52
+        self.rule_decay_days = 45
 
         # Market regime definitions
         self.regimes = {
@@ -38,73 +39,67 @@ class LettaMemory:
             "complacent": {"max_vix": 15},
         }
 
-        logger.info(f"Letta Memory v2.4 | {len(self.rules)} rules | {len(self.trade_history)} trades | Decay: {self.rule_decay_days}d")
+        logger.info(f"Letta Memory v2.5 | {len(self.rules)} rules | {len(self.trade_history)} trades | Decay: {self.rule_decay_days}d")
+
+    # ==================== FILE I/O ====================
 
     def _load(self, path: str, default: any) -> any:
         os.makedirs(self.memory_dir, exist_ok=True)
         if os.path.exists(path):
             try:
-                with open(path) as f:
+                with open(path, "r") as f:
                     return json.load(f)
             except Exception as e:
-                logger.error(f"Failed to load {path}: {e}")
+                logger.error(f"Error loading {path}: {e}")
         return default
 
     def _save(self):
         os.makedirs(self.memory_dir, exist_ok=True)
-        with open(self.memory_file, "w") as f:
+        with open(self.rules_file, "w") as f:
             json.dump(self.rules, f, indent=2, default=str)
-        with open(self.trade_memory_file, "w") as f:
+        with open(self.trades_file, "w") as f:
             json.dump(self.trade_history, f, indent=2, default=str)
 
-    def _get_market_regime(self, vix: float) -> str:
-        """Determine market regime from VIX"""
-        if vix >= 30:
-            return "fear"
-        elif vix >= 25:
-            return "cautious"
-        elif vix >= 15:
-            return "normal"
-        else:
-            return "complacent"
+    # ==================== HELPERS ====================
 
-    def _get_symbol_category(self, symbol: str) -> str:
-        """Categorize symbol type"""
-        if "-USD" in symbol:
-            return "crypto"
-        elif ".TO" in symbol:
-            return "canadian_stock"
-        elif symbol in ["SPY", "QQQ", "IWM", "DIA", "VTI", "XIU.TO", "VFV.TO"]:
-            return "broad_etf"
-        elif symbol in ["XLF", "XLK", "XLE", "XLV"]:
-            return "sector_etf"
-        else:
-            return "individual_stock"
+    def _get_regime(self, vix: float) -> str:
+        if vix >= 30: return "fear"
+        elif vix >= 25: return "cautious"
+        elif vix >= 15: return "normal"
+        return "complacent"
+
+    def _get_category(self, symbol: str) -> str:
+        if "-USD" in symbol: return "crypto"
+        elif ".TO" in symbol: return "canadian_stock"
+        elif symbol in ["SPY", "QQQ", "IWM", "DIA", "VTI"]: return "broad_etf"
+        elif symbol in ["XLF", "XLK", "XLE", "XLV"]: return "sector_etf"
+        return "individual_stock"
 
     # ==================== TRADE MEMORY ====================
 
     def remember_trade(self, trade_data: dict):
-        """Record trade with rich context including AI scores"""
+        """Record rich trade context from all agents"""
         symbol = trade_data.get("symbol", "unknown")
         vix = trade_data.get("vix", 20)
 
         trade = {
             "timestamp": datetime.now().isoformat(),
             "symbol": symbol,
-            "action": trade_data.get("action", "unknown"),
-            "price": trade_data.get("price", 0),
+            "action": trade_data.get("action", "").upper(),
+            "price": float(trade_data.get("price", 0)),
+            "quantity_pct": float(trade_data.get("quantity_pct", 0)),
             "rsi": trade_data.get("rsi"),
             "vix": vix,
-            "regime": self._get_market_regime(vix) if vix else "unknown",
-            "symbol_category": self._get_symbol_category(symbol),
+            "regime": self._get_regime(vix) if vix else "unknown",
+            "category": self._get_category(symbol),
             "deepseek_score": trade_data.get("deepseek_score"),
             "deepseek_confidence": trade_data.get("deepseek_confidence"),
             "claude_sentiment": trade_data.get("claude_sentiment"),
             "claude_bias": trade_data.get("claude_bias"),
             "models_agree": trade_data.get("models_agree"),
-            "reason": trade_data.get("reason", "")[:300],
-            "scenario": trade_data.get("scenario_id"),
             "news_freshness": trade_data.get("news_freshness"),
+            "reason": trade_data.get("reason", "")[:400],
+            "scenario": trade_data.get("scenario_id"),
             "outcome_checked": False,
             "outcome_pnl_pct": None,
             "outcome_success": None,
@@ -114,12 +109,13 @@ class LettaMemory:
         if len(self.trade_history) > self.max_trades:
             self.trade_history = self.trade_history[-self.max_trades:]
         self._save()
+        logger.debug(f"Letta: {trade['symbol']} {trade['action']} remembered")
 
     # ==================== OUTCOME CHECKING ====================
 
     def check_outcomes(self, current_prices: Dict[str, float]):
-        """Update outcomes and trigger learning from completed trades"""
-        learned_count = 0
+        """Check past trades and trigger learning"""
+        learned = 0
 
         for trade in self.trade_history:
             if trade.get("outcome_checked"):
@@ -135,133 +131,118 @@ class LettaMemory:
                 continue
 
             pnl_pct = ((current_price - trade["price"]) / trade["price"]) * 100
-            if trade["action"].upper() == "SELL":
+            if trade["action"] == "SELL":
                 pnl_pct = -pnl_pct
 
             trade["outcome_pnl_pct"] = round(pnl_pct, 3)
-            trade["outcome_success"] = pnl_pct > 0
+            trade["outcome_success"] = pnl_pct > 0.0
             trade["outcome_checked"] = True
 
-            # Learn from this outcome
-            self._learn_from_trade(trade)
-            learned_count += 1
+            self._learn_from_outcome(trade)
+            learned += 1
 
-        if learned_count > 0:
-            self._apply_time_decay()
+        if learned > 0:
+            self._decay_old_rules()
+            self._prune_rules()
             self._save()
-            logger.info(f"Letta learned from {learned_count} outcomes | {len(self.rules)} rules active")
+            logger.info(f"Letta learned from {learned} outcomes | {len(self.rules)} rules active")
 
     # ==================== LEARNING ENGINE ====================
 
-    def _learn_from_trade(self, trade: dict):
-        """Extract patterns from a completed trade"""
+    def _learn_from_outcome(self, trade: dict):
+        """Create multiple rule types from a single trade outcome"""
         success = trade.get("outcome_success", False)
         pnl = trade.get("outcome_pnl_pct", 0)
-
-        # 1. RSI + VIX combination rule
-        if trade.get("rsi") and trade.get("vix"):
-            self._create_signal_rule(trade)
-
-        # 2. Model agreement/disagreement rule
-        if trade.get("deepseek_score") is not None and trade.get("claude_sentiment") is not None:
-            self._learn_model_combination(trade)
-
-        # 3. Symbol category performance
-        category = trade.get("symbol_category", "unknown")
-        self._update_category_rule(category, success, pnl)
-
-        # 4. News freshness impact
-        freshness = trade.get("news_freshness")
-        if freshness is not None:
-            self._update_news_freshness_rule(freshness, success, pnl)
-
-    def _create_signal_rule(self, trade: dict):
-        """Create rules based on RSI + VIX + regime combinations"""
-        rsi = trade["rsi"]
-        vix = trade["vix"]
+        rsi = trade.get("rsi")
+        vix = trade.get("vix")
+        ds_score = trade.get("deepseek_score")
+        claude_sent = trade.get("claude_sentiment")
+        category = trade.get("category", "unknown")
         regime = trade.get("regime", "unknown")
-        success = trade.get("outcome_success", False)
-        pnl = trade.get("outcome_pnl_pct", 0)
-        action = trade.get("action", "").upper()
+        freshness = trade.get("news_freshness")
 
-        # Define condition buckets
-        if rsi < 35 and vix > 25:
-            rule_id = "high_vix_low_rsi"
-            description = f"High VIX ({vix:.0f}) + Low RSI ({rsi:.0f}) = dip buys tend to work in {regime} markets"
-            conditions = {"min_vix": 25, "max_rsi": 35}
-        elif rsi > 65 and vix < 18:
-            rule_id = "low_vix_high_rsi"
-            description = f"Low VIX ({vix:.0f}) + High RSI ({rsi:.0f}) = profit taking works in calm markets"
-            conditions = {"max_vix": 18, "min_rsi": 65}
-        elif rsi < 30:
-            rule_id = "oversold_any_vix"
-            description = f"Deeply oversold RSI ({rsi:.0f}) = bounce potential regardless of VIX"
-            conditions = {"max_rsi": 30}
-        elif vix > 28:
-            rule_id = "high_vix_caution"
-            description = f"Elevated VIX ({vix:.0f}) = reduced position sizes recommended"
-            conditions = {"min_vix": 28}
-        else:
-            # No clear pattern — don't create a rule
-            return
+        # Rule Type 1: RSI + VIX combination
+        if rsi is not None and vix is not None:
+            if rsi < 35 and vix > 25:
+                self._add_rule(
+                    rule_id="high_vix_low_rsi",
+                    description=f"High VIX ({vix:.0f}) + Low RSI ({rsi:.0f}) = dip buys work in {regime}",
+                    conditions={"min_vix": 25, "max_rsi": 35},
+                    recommendation="amplify_buy" if success else "dampen_buy",
+                    success=success, pnl=pnl
+                )
+            elif rsi > 65 and vix < 18:
+                self._add_rule(
+                    rule_id="low_vix_high_rsi",
+                    description=f"Low VIX ({vix:.0f}) + High RSI ({rsi:.0f}) = profit taking works",
+                    conditions={"max_vix": 18, "min_rsi": 65},
+                    recommendation="amplify_sell" if success else "no_change",
+                    success=success, pnl=pnl
+                )
 
-        recommendation = "amplify_buy" if (success and action == "BUY") else "dampen_buy" if (not success and action == "BUY") else "no_change"
+        # Rule Type 2: Model agreement
+        if ds_score is not None and claude_sent is not None:
+            ds_dir = "bullish" if ds_score > 0.2 else "bearish" if ds_score < -0.2 else "neutral"
+            cl_dir = "bullish" if claude_sent > 0.2 else "bearish" if claude_sent < -0.2 else "neutral"
+            agree = (ds_dir == cl_dir and ds_dir != "neutral")
 
-        self._upsert_rule(rule_id, description, conditions, recommendation, success, pnl)
+            if agree:
+                self._add_rule(
+                    rule_id=f"models_agree_{ds_dir}",
+                    description=f"Both AIs agree ({ds_dir}) = higher confidence",
+                    conditions={"models_agree": True, "direction": ds_dir},
+                    recommendation="amplify_buy" if success else "dampen_buy",
+                    success=success, pnl=pnl
+                )
+            else:
+                self._add_rule(
+                    rule_id="models_disagree",
+                    description=f"AIs disagree (DS:{ds_dir}, Claude:{cl_dir}) = trust DeepSeek math",
+                    conditions={"models_agree": False},
+                    recommendation="follow_deepseek" if success else "reduce_position",
+                    success=success, pnl=pnl
+                )
 
-    def _learn_model_combination(self, trade: dict):
-        """Learn from DeepSeek + Claude agreement or disagreement"""
-        ds_score = trade.get("deepseek_score", 0)
-        claude_sent = trade.get("claude_sentiment", 0)
-        models_agree = trade.get("models_agree", None)
-        success = trade.get("outcome_success", False)
-        pnl = trade.get("outcome_pnl_pct", 0)
+        # Rule Type 3: Category performance
+        self._add_rule(
+            rule_id=f"category_{category}",
+            description=f"{category.replace('_',' ').title()} performance in {regime}",
+            conditions={"category": category, "regime": regime},
+            recommendation="no_change",
+            success=success, pnl=pnl
+        )
 
-        # Determine agreement
-        ds_direction = "bullish" if ds_score > 0.2 else "bearish" if ds_score < -0.2 else "neutral"
-        claude_direction = "bullish" if claude_sent > 0.2 else "bearish" if claude_sent < -0.2 else "neutral"
+        # Rule Type 4: News freshness impact
+        if freshness is not None:
+            if freshness >= 0.7:
+                self._add_rule(
+                    rule_id="fresh_news",
+                    description="Fresh news (>0.7) leads to better outcomes",
+                    conditions={"min_news_freshness": 0.7},
+                    recommendation="amplify_buy" if success else "no_change",
+                    success=success, pnl=pnl
+                )
+            elif freshness < 0.4:
+                self._add_rule(
+                    rule_id="stale_news",
+                    description="Stale news (<0.4) = wait for fresh data",
+                    conditions={"max_news_freshness": 0.4},
+                    recommendation="dampen_buy" if not success else "no_change",
+                    success=success, pnl=pnl
+                )
 
-        if ds_direction == claude_direction and ds_direction != "neutral":
-            rule_id = f"models_agree_{ds_direction}"
-            description = f"When both AIs agree ({ds_direction}), outcomes improve (avg {pnl:+.2f}%)"
-            conditions = {"models_agree": True, "direction": ds_direction}
-            recommendation = "amplify_buy" if success else "dampen_buy"
-        elif ds_direction != claude_direction and ds_direction != "neutral" and claude_direction != "neutral":
-            rule_id = f"models_disagree"
-            description = f"When AIs disagree (DS:{ds_direction}, Claude:{claude_direction}), trust DeepSeek math over Claude sentiment"
-            conditions = {"models_agree": False}
-            recommendation = "follow_deepseek" if success else "reduce_position"
-        else:
-            return
+        # Rule Type 5: Regime-specific
+        self._add_rule(
+            rule_id=f"regime_{regime}",
+            description=f"Trading in {regime} regime",
+            conditions={"regime": regime},
+            recommendation="amplify_buy" if success else "dampen_buy",
+            success=success, pnl=pnl
+        )
 
-        self._upsert_rule(rule_id, description, conditions, recommendation, success, pnl)
-
-    def _update_category_rule(self, category: str, success: bool, pnl: float):
-        """Track performance by symbol category"""
-        rule_id = f"category_{category}"
-        description = f"{category.replace('_', ' ').title()} trades performance"
-
-        self._upsert_rule(rule_id, description, {"category": category}, "no_change", success, pnl)
-
-    def _update_news_freshness_rule(self, freshness: float, success: bool, pnl: float):
-        """Track how news freshness affects outcomes"""
-        if freshness >= 0.7:
-            rule_id = "fresh_news"
-            description = f"Fresh news (>0.7) leads to better outcomes (+{pnl:+.2f}% avg)"
-            conditions = {"min_news_freshness": 0.7}
-        elif freshness < 0.4:
-            rule_id = "stale_news"
-            description = f"Stale news (<0.4) leads to worse outcomes — wait for fresh data"
-            conditions = {"max_news_freshness": 0.4}
-        else:
-            return
-
-        recommendation = "amplify_buy" if success else "dampen_buy"
-        self._upsert_rule(rule_id, description, conditions, recommendation, success, pnl)
-
-    def _upsert_rule(self, rule_id: str, description: str, conditions: dict,
-                     recommendation: str, success: bool, pnl: float):
-        """Insert or update a rule with success tracking"""
+    def _add_rule(self, rule_id: str, description: str, conditions: dict,
+                  recommendation: str, success: bool, pnl: float):
+        """Insert or update a rule"""
         for rule in self.rules:
             if rule.get("id") == rule_id:
                 rule["times_seen"] += 1
@@ -274,7 +255,6 @@ class LettaMemory:
                 rule["last_seen"] = datetime.now().isoformat()
                 return
 
-        # New rule
         self.rules.append({
             "id": rule_id,
             "description": description,
@@ -290,87 +270,87 @@ class LettaMemory:
             "last_seen": datetime.now().isoformat(),
         })
 
-    # ==================== TIME DECAY ====================
+    # ==================== MAINTENANCE ====================
 
-    def _apply_time_decay(self):
-        """Reduce confidence of old rules that haven't been seen recently"""
+    def _decay_old_rules(self):
+        """Reduce confidence of rules not seen recently"""
         now = datetime.now()
         for rule in self.rules:
             last_seen = rule.get("last_seen")
             if last_seen:
                 try:
-                    last_seen_dt = datetime.fromisoformat(last_seen)
-                    days_since = (now - last_seen_dt).days
-                    if days_since > self.rule_decay_days:
-                        decay = max(0.3, 1.0 - (days_since - self.rule_decay_days) / 180)
+                    age_days = (now - datetime.fromisoformat(last_seen)).days
+                    if age_days > self.rule_decay_days:
+                        decay = max(0.3, 1.0 - (age_days - self.rule_decay_days) * 0.008)
                         rule["confidence"] = round(rule["confidence"] * decay, 3)
                         rule["decayed"] = True
                 except:
                     pass
 
+    def _prune_rules(self):
+        """Keep only the best rules"""
+        if len(self.rules) > self.max_rules:
+            self.rules.sort(key=lambda r: r.get("confidence", 0) * min(r.get("times_seen", 1), 10), reverse=True)
+            self.rules = self.rules[:self.max_rules]
+
     # ==================== ADVICE ENGINE ====================
 
-    def get_advice(self, current_state: dict) -> Optional[dict]:
-        """Get the best learned advice for current market conditions"""
-        symbol = current_state.get("symbol", "")
-        rsi = current_state.get("rsi", 50)
-        vix = current_state.get("vix", 20)
-        ds_score = current_state.get("deepseek_score")
-        claude_sent = current_state.get("claude_sentiment")
-        news_freshness = current_state.get("news_freshness")
-        category = self._get_symbol_category(symbol)
-        regime = self._get_market_regime(vix)
+    def get_advice(self, symbol: str, rsi: float = None, vix: float = None,
+                   deepseek_score: float = None, claude_sentiment: float = None,
+                   news_freshness: float = None) -> Optional[dict]:
+        """Get best learned advice for current conditions"""
+        category = self._get_category(symbol)
+        regime = self._get_regime(vix) if vix else "unknown"
 
-        applicable_rules = []
-
+        applicable = []
         for rule in self.rules:
             if rule.get("confidence", 0) < self.min_confidence:
                 continue
 
             conditions = rule.get("conditions", {})
-            matches = True
+            match = True
 
             for key, value in conditions.items():
                 if key == "category" and value != category:
-                    matches = False
-                elif key == "min_vix" and vix < value:
-                    matches = False
-                elif key == "max_vix" and vix > value:
-                    matches = False
-                elif key == "min_rsi" and rsi < value:
-                    matches = False
-                elif key == "max_rsi" and rsi > value:
-                    matches = False
+                    match = False
+                elif key == "regime" and value != regime:
+                    match = False
+                elif key == "min_vix" and (vix or 20) < value:
+                    match = False
+                elif key == "max_vix" and (vix or 20) > value:
+                    match = False
+                elif key == "min_rsi" and (rsi or 50) < value:
+                    match = False
+                elif key == "max_rsi" and (rsi or 50) > value:
+                    match = False
                 elif key == "min_news_freshness" and (news_freshness or 0) < value:
-                    matches = False
+                    match = False
                 elif key == "max_news_freshness" and (news_freshness or 1) > value:
-                    matches = False
+                    match = False
                 elif key == "models_agree":
-                    ds_dir = "bullish" if (ds_score or 0) > 0.2 else "bearish" if (ds_score or 0) < -0.2 else "neutral"
-                    cl_dir = "bullish" if (claude_sent or 0) > 0.2 else "bearish" if (claude_sent or 0) < -0.2 else "neutral"
+                    ds_dir = "bullish" if (deepseek_score or 0) > 0.2 else "bearish" if (deepseek_score or 0) < -0.2 else "neutral"
+                    cl_dir = "bullish" if (claude_sentiment or 0) > 0.2 else "bearish" if (claude_sentiment or 0) < -0.2 else "neutral"
                     agree = (ds_dir == cl_dir and ds_dir != "neutral")
                     if value != agree:
-                        matches = False
+                        match = False
                 elif key == "direction":
-                    ds_dir = "bullish" if (ds_score or 0) > 0.2 else "bearish" if (ds_score or 0) < -0.2 else "neutral"
+                    ds_dir = "bullish" if (deepseek_score or 0) > 0.2 else "bearish" if (deepseek_score or 0) < -0.2 else "neutral"
                     if value != ds_dir:
-                        matches = False
+                        match = False
 
-            if matches:
-                applicable_rules.append(rule)
+            if match:
+                applicable.append(rule)
 
-        if not applicable_rules:
+        if not applicable:
             return None
 
-        # Sort by confidence × times_seen (values proven rules more)
-        applicable_rules.sort(key=lambda r: r["confidence"] * min(r["times_seen"], 20), reverse=True)
-        best = applicable_rules[0]
+        applicable.sort(key=lambda r: r["confidence"] * min(r["times_seen"], 20), reverse=True)
+        best = applicable[0]
 
-        # Collect all matching advice
-        amplify_count = sum(1 for r in applicable_rules if r.get("recommendation") in ["amplify_buy", "amplify_sell"])
-        dampen_count = sum(1 for r in applicable_rules if r.get("recommendation") in ["dampen_buy", "dampen_sell"])
+        amplify = sum(1 for r in applicable if r.get("recommendation") in ["amplify_buy", "amplify_sell"])
+        dampen = sum(1 for r in applicable if r.get("recommendation") in ["dampen_buy", "dampen_sell"])
 
-        final_advice = "amplify" if amplify_count > dampen_count else "dampen" if dampen_count > amplify_count else best.get("recommendation", "no_change")
+        final_advice = "amplify" if amplify > dampen else "dampen" if dampen > amplify else best.get("recommendation", "no_change")
 
         return {
             "advice": final_advice,
@@ -378,34 +358,25 @@ class LettaMemory:
             "confidence": round(best.get("confidence", 0.5), 2),
             "based_on": f"{best.get('times_seen', 0)} similar situations, worked {best.get('times_worked', 0)} times",
             "avg_pnl": best.get("avg_pnl", 0),
-            "rules_matched": len(applicable_rules),
-            "top_rules": [{"id": r["id"], "conf": r["confidence"], "desc": r["description"][:80]} for r in applicable_rules[:3]]
+            "rules_matched": len(applicable),
+            "top_rules": [{"id": r["id"], "conf": r["confidence"], "desc": r["description"][:80]} for r in applicable[:3]]
         }
 
     # ==================== STATISTICS ====================
 
-    def _calculate_overall_winrate(self) -> float:
-        """Calculate overall win rate from trade history"""
-        checked = [t for t in self.trade_history if t.get("outcome_checked")]
-        if not checked:
-            return 0.0
-        return round(sum(1 for t in checked if t.get("outcome_success")) / len(checked) * 100, 1)
-
     def get_stats(self) -> dict:
-        """Get comprehensive memory statistics"""
+        """Comprehensive statistics"""
         checked = [t for t in self.trade_history if t.get("outcome_checked")]
         wins = [t for t in checked if t.get("outcome_success")]
         losses = [t for t in checked if not t.get("outcome_success")]
 
-        # Win rate by category
         category_stats = defaultdict(lambda: {"wins": 0, "total": 0})
         for t in checked:
-            cat = t.get("symbol_category", "unknown")
+            cat = t.get("category", "unknown")
             category_stats[cat]["total"] += 1
             if t.get("outcome_success"):
                 category_stats[cat]["wins"] += 1
 
-        # Win rate by regime
         regime_stats = defaultdict(lambda: {"wins": 0, "total": 0})
         for t in checked:
             reg = t.get("regime", "unknown")
@@ -413,37 +384,31 @@ class LettaMemory:
             if t.get("outcome_success"):
                 regime_stats[reg]["wins"] += 1
 
-        # Best and worst performing rules
-        proven_rules = sorted(
-            [r for r in self.rules if r.get("times_seen", 0) >= 3],
-            key=lambda r: r.get("confidence", 0),
-            reverse=True
-        )
+        active = [r for r in self.rules if r.get("confidence", 0) >= self.min_confidence]
+        win_rate = round(len(wins) / max(len(checked), 1) * 100, 1)
 
         return {
             "total_rules": len(self.rules),
-            "active_rules": len([r for r in self.rules if r.get("confidence", 0) >= self.min_confidence]),
-            "total_trades_remembered": len(self.trade_history),
-            "trades_evaluated": len(checked),
-            "overall_win_rate": self._calculate_overall_winrate(),
-            "avg_win_pnl": round(np.mean([t.get("outcome_pnl_pct", 0) for t in wins]), 2) if wins else 0,
-            "avg_loss_pnl": round(np.mean([t.get("outcome_pnl_pct", 0) for t in losses]), 2) if losses else 0,
+            "active_rules": len(active),
+            "total_trades": len(self.trade_history),
+            "checked_trades": len(checked),
+            "win_rate": win_rate,
+            "avg_win_pnl": round(sum(t.get("outcome_pnl_pct", 0) for t in wins) / max(len(wins), 1), 2),
+            "avg_loss_pnl": round(sum(t.get("outcome_pnl_pct", 0) for t in losses) / max(len(losses), 1), 2),
             "by_category": {k: {"win_rate": round(v["wins"]/max(v["total"],1)*100,1), "trades": v["total"]} for k,v in category_stats.items()},
             "by_regime": {k: {"win_rate": round(v["wins"]/max(v["total"],1)*100,1), "trades": v["total"]} for k,v in regime_stats.items()},
-            "top_rules": [{"id": r["id"], "confidence": r["confidence"], "seen": r["times_seen"], "description": r["description"][:100]} for r in proven_rules[:5]]
+            "top_rules": [{"id": r["id"], "conf": r["confidence"], "seen": r["times_seen"], "desc": r["description"][:100]} for r in sorted(active, key=lambda x: x["confidence"], reverse=True)[:5]]
         }
 
     def print_report(self):
-        """Print a formatted learning report"""
+        """Formatted learning report"""
         stats = self.get_stats()
         print(f"""
 ╔══════════════════════════════════════════════════╗
-║           LETTA MEMORY REPORT                   ║
+║           LETTA MEMORY v2.5 REPORT              ║
 ╠══════════════════════════════════════════════════╣
-║ Rules: {stats['total_rules']:>5} | Active: {stats['active_rules']:>5}                    ║
-║ Trades: {stats['total_trades_remembered']:>5} | Evaluated: {stats['trades_evaluated']:>5}            ║
-║ Win Rate: {stats['overall_win_rate']:>5.1f}%                              ║
-║ Avg Win: {stats['avg_win_pnl']:>+6.2f}% | Avg Loss: {stats['avg_loss_pnl']:>+6.2f}%         ║
+║ Rules: {stats['total_rules']:>5} | Active: {stats['active_rules']:>5} | Trades: {stats['total_trades']:>5}         ║
+║ Win Rate: {stats['win_rate']:>5.1f}% | Avg Win: {stats['avg_win_pnl']:>+6.2f}% | Avg Loss: {stats['avg_loss_pnl']:>+6.2f}% ║
 ╠══════════════════════════════════════════════════╣
 ║ By Category:                                     ║""")
         for cat, data in stats.get("by_category", {}).items():
@@ -453,4 +418,3 @@ class LettaMemory:
         for reg, data in stats.get("by_regime", {}).items():
             print(f"║   {reg:<20}: {data['win_rate']:>5.1f}% ({data['trades']} trades)           ║")
         print(f"╚══════════════════════════════════════════════════╝")
-"""
