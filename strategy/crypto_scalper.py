@@ -3,6 +3,7 @@ Crypto Pennies Strategy — Small consistent wins compound into big returns.
 24/7 trading with fee-aware math, VWAP Z-Score, Bollinger Bands, ATR stops.
 Includes market cap data from CoinGecko (free, no API key).
 Uses Yahoo Finance for price data when Binance is blocked.
+Trades top 20 cryptos by market cap for maximum opportunities.
 """
 
 import logging
@@ -21,6 +22,7 @@ class CryptoPenniesStrategy:
     Entry: VWAP Z-Score + Volume confirmation + Bollinger Band filter + Market Cap check
     Exit: ATR-based target + ATR-based stop + Time stop
     Sizing: Kelly Criterion × 0.3
+    Trades: Top 20 cryptos by market cap
     """
 
     def __init__(self, config):
@@ -38,7 +40,15 @@ class CryptoPenniesStrategy:
         self._market_cap_cache = {}
         self._market_cap_cache_time = None
 
-        logger.info(f"Crypto Pennies Strategy | Target: {self.atr_target}× ATR | Stop: {self.atr_stop}× ATR | Max Hold: {self.max_hold}h | Fees: {self.fee_pct:.2%}")
+        # All tradable cryptos
+        self.crypto_symbols = [
+            "BTC-USD", "ETH-USD", "SOL-USD", "XRP-USD", "DOGE-USD",
+            "ADA-USD", "AVAX-USD", "DOT-USD", "MATIC-USD", "LINK-USD",
+            "UNI-USD", "ATOM-USD", "XLM-USD", "FIL-USD", "NEAR-USD",
+            "ALGO-USD", "VET-USD", "ICP-USD", "GRT-USD", "FTM-USD"
+        ]
+
+        logger.info(f"Crypto Pennies Strategy | {len(self.crypto_symbols)} symbols | Target: {self.atr_target}× ATR | Stop: {self.atr_stop}× ATR | Max Hold: {self.max_hold}h | Fees: {self.fee_pct:.2%}")
 
     # ==================== DATA SOURCES ====================
 
@@ -93,10 +103,18 @@ class CryptoPenniesStrategy:
             logger.debug(f"Yahoo crypto fetch error: {e}")
             return None
 
-    def fetch_coingecko_price(self, symbol: str) -> Optional[float]:
-        """Fetch current price from CoinGecko (works everywhere, free, no key)"""
+    def fetch_coingecko_data(self, symbol: str) -> Optional[dict]:
+        """Fetch price, market cap, volume from CoinGecko (free, no key)"""
         try:
-            coin_map = {"BTC-USD": "bitcoin", "ETH-USD": "ethereum"}
+            coin_map = {
+                "BTC-USD": "bitcoin", "ETH-USD": "ethereum", "SOL-USD": "solana",
+                "XRP-USD": "ripple", "DOGE-USD": "dogecoin", "ADA-USD": "cardano",
+                "AVAX-USD": "avalanche-2", "DOT-USD": "polkadot", "MATIC-USD": "matic-network",
+                "LINK-USD": "chainlink", "UNI-USD": "uniswap", "ATOM-USD": "cosmos",
+                "XLM-USD": "stellar", "FIL-USD": "filecoin", "NEAR-USD": "near",
+                "ALGO-USD": "algorand", "VET-USD": "vechain", "ICP-USD": "internet-computer",
+                "GRT-USD": "the-graph", "FTM-USD": "fantom"
+            }
             coin_id = coin_map.get(symbol, symbol.lower().replace("-usd", ""))
 
             url = f"https://api.coingecko.com/api/v3/simple/price"
@@ -111,24 +129,18 @@ class CryptoPenniesStrategy:
 
             if resp.status_code == 429:
                 logger.warning("CoinGecko rate limit hit")
-                return self._market_cap_cache.get(symbol)
+                return None
 
             data = resp.json()
             coin_data = data.get(coin_id, {})
 
-            market_cap = coin_data.get("usd_market_cap")
-            volume_24h = coin_data.get("usd_24h_vol")
-            change_24h = coin_data.get("usd_24h_change")
+            if coin_data:
+                self._market_cap_cache[symbol] = coin_data.get("usd_market_cap")
+                self._market_cap_cache[f"{symbol}_volume"] = coin_data.get("usd_24h_vol")
+                self._market_cap_cache[f"{symbol}_change"] = coin_data.get("usd_24h_change")
+                self._market_cap_cache_time = datetime.now()
 
-            self._market_cap_cache[symbol] = market_cap
-            if volume_24h:
-                self._market_cap_cache[f"{symbol}_volume"] = volume_24h
-            if change_24h is not None:
-                self._market_cap_cache[f"{symbol}_change"] = change_24h
-
-            self._market_cap_cache_time = datetime.now()
-
-            return coin_data.get("usd")
+            return coin_data
 
         except Exception as e:
             logger.debug(f"CoinGecko error for {symbol}: {e}")
@@ -147,13 +159,15 @@ class CryptoPenniesStrategy:
             return "large_cap"
         elif market_cap > 10_000_000_000:
             return "mid_cap"
-        else:
+        elif market_cap > 1_000_000_000:
             return "small_cap"
+        else:
+            return "micro_cap"
 
     # ==================== TECHNICAL INDICATORS ====================
 
     def calculate_atr(self, df: pd.DataFrame, period: int = 14) -> float:
-        """Average True Range — fixed array size"""
+        """Average True Range"""
         if len(df) < period + 1:
             return 0.02
 
@@ -232,7 +246,7 @@ class CryptoPenniesStrategy:
         return current_vol / avg_vol
 
     def calculate_rsi(self, df: pd.DataFrame, period: int = 14) -> float:
-        """RSI — fixed array size"""
+        """RSI"""
         if len(df) < period + 1:
             return 50.0
 
@@ -253,10 +267,16 @@ class CryptoPenniesStrategy:
     def generate_signal(self, symbol: str, price_history: pd.Series = None) -> Optional[dict]:
         """Generate a trading signal for crypto"""
 
-        if "BTC" in symbol:
+        # Use shorter timeframe for high-volatility coins
+        high_vol_coins = ["DOGE-USD", "SOL-USD", "AVAX-USD", "NEAR-USD", "GRT-USD", "FTM-USD"]
+        if symbol in high_vol_coins:
+            interval = "15m"
+        elif "BTC" in symbol:
             interval = self.crypto_config.btc_timeframe
-        else:
+        elif "ETH" in symbol:
             interval = self.crypto_config.eth_timeframe
+        else:
+            interval = "1h"
 
         # Try Binance first, fallback to Yahoo Finance
         df = self.fetch_binance_klines(symbol, interval)
@@ -267,7 +287,7 @@ class CryptoPenniesStrategy:
             data_source = "Yahoo Finance"
 
         if df is None or len(df) < 20:
-            logger.debug(f"Crypto {symbol}: Insufficient data from all sources")
+            logger.debug(f"Crypto {symbol}: Insufficient data")
             return None
 
         close_col = 'close' if 'close' in df.columns else 'Close'
@@ -281,7 +301,7 @@ class CryptoPenniesStrategy:
         rsi = self.calculate_rsi(df)
 
         # Market cap data
-        self.fetch_coingecko_price(symbol)
+        self.fetch_coingecko_data(symbol)
         market_cap = self._market_cap_cache.get(symbol)
         cap_tier = self.get_market_cap_rank(symbol)
         volume_24h = self._market_cap_cache.get(f"{symbol}_volume")
@@ -289,30 +309,40 @@ class CryptoPenniesStrategy:
 
         logger.info(f"Crypto {symbol} [{data_source}] | ${current_price:.2f} | VWAP-Z: {vwap_z:.2f} | ATR: {atr:.2%} | BBW: {bb_width:.3f} | Vol: {vol_ratio:.1f}x | RSI: {rsi:.0f} | Cap: {cap_tier}")
 
-        # Entry conditions — more aggressive
+        # Entry conditions — aggressive for high-vol coins, standard for mega caps
+        if cap_tier in ["mega_cap", "large_cap"]:
+            vwap_threshold = -0.8
+        else:
+            vwap_threshold = -1.2  # Stricter for smaller caps
+
         entry_conditions = {
-            "vwap_zscore_ok": vwap_z < -0.8,
+            "vwap_zscore_ok": vwap_z < vwap_threshold,
             "volume_ok": vol_ratio > self.min_volume_mult,
-            "bollinger_ok": 0.02 < bb_width < 0.15,
+            "bollinger_ok": 0.02 < bb_width < 0.20,  # Wider range for volatile coins
             "rsi_not_overbought": rsi < 70,
-            "market_cap_ok": cap_tier in ["mega_cap", "large_cap", "mid_cap"],
+            "market_cap_ok": cap_tier in ["mega_cap", "large_cap", "mid_cap", "small_cap"],
         }
 
         all_pass = all(entry_conditions.values())
 
         if not all_pass:
             failed = [k for k, v in entry_conditions.items() if not v]
-            logger.debug(f"Crypto {symbol}: Conditions not met — {failed}")
+            logger.debug(f"Crypto {symbol}: Failed — {failed}")
             return None
 
-        # Adjust position size by market cap tier
+        # Position size by market cap tier (safer for smaller caps)
         cap_multiplier = {
             "mega_cap": 1.0,
             "large_cap": 0.9,
-            "mid_cap": 0.7,
-            "small_cap": 0.5,
-            "unknown": 0.5
+            "mid_cap": 0.6,
+            "small_cap": 0.4,
+            "micro_cap": 0.2,
+            "unknown": 0.3
         }
+
+        # Extra volatility adjustment
+        if atr > 0.05:  # >5% ATR = very volatile
+            cap_multiplier[cap_tier] *= 0.7
 
         # Calculate profit target and stop loss
         target_pct = atr * self.atr_target
@@ -328,6 +358,11 @@ class CryptoPenniesStrategy:
 
         # Risk/reward
         risk_reward = net_target / net_risk if net_risk > 0 else 0
+
+        # Skip if risk/reward is terrible
+        if risk_reward < 0.8:
+            logger.debug(f"Crypto {symbol}: Poor R:R {risk_reward:.2f}")
+            return None
 
         # Kelly position sizing
         p_win = 0.55
@@ -389,6 +424,7 @@ class CryptoPenniesStrategy:
     def get_stats(self) -> dict:
         return {
             "strategy": "Crypto Pennies Scalping",
+            "symbols": len(self.crypto_symbols),
             "atr_target_multiplier": self.atr_target,
             "atr_stop_multiplier": self.atr_stop,
             "max_hold_hours": self.max_hold,

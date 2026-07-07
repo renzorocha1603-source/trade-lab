@@ -72,7 +72,10 @@ class DataConfig:
         "RY.TO", "TD.TO", "SHOP.TO", "ENB.TO", "CNQ.TO",
         "XIU.TO", "VFV.TO",
         "BABA", "TSM", "WMT", "XOM", "XLV",
-        "BTC-USD", "ETH-USD",
+        "BTC-USD", "ETH-USD", "SOL-USD", "XRP-USD", "DOGE-USD",
+        "ADA-USD", "AVAX-USD", "DOT-USD", "MATIC-USD", "LINK-USD",
+        "UNI-USD", "ATOM-USD", "XLM-USD", "FIL-USD", "NEAR-USD",
+        "ALGO-USD", "VET-USD", "ICP-USD", "GRT-USD", "FTM-USD"
     ])
     benchmark: str = "SPY"
 
@@ -100,7 +103,12 @@ class CryptoConfig:
     min_net_ev: float = 0.005
     btc_timeframe: str = "1h"
     eth_timeframe: str = "15m"
-    crypto_symbols: List[str] = field(default_factory=lambda: ["BTC-USD", "ETH-USD"])
+    crypto_symbols: List[str] = field(default_factory=lambda: [
+        "BTC-USD", "ETH-USD", "SOL-USD", "XRP-USD", "DOGE-USD",
+        "ADA-USD", "AVAX-USD", "DOT-USD", "MATIC-USD", "LINK-USD",
+        "UNI-USD", "ATOM-USD", "XLM-USD", "FIL-USD", "NEAR-USD",
+        "ALGO-USD", "VET-USD", "ICP-USD", "GRT-USD", "FTM-USD"
+    ])
 
 @dataclass
 class RiskProfileConfig:
@@ -122,35 +130,35 @@ class RiskProfileConfig:
     })
     balanced: dict = field(default_factory=lambda: {
         "name": "Balanced",
-        "z_score_threshold": -1.5,
-        "kelly_fraction": 0.50,
-        "ev_minimum": 0.003,
-        "sharpe_minimum": 0.5,
+        "z_score_threshold": -1.2,
+        "kelly_fraction": 0.60,
+        "ev_minimum": 0.001,
+        "sharpe_minimum": 0.3,
         "use_rsi_filter": True,
-        "rsi_threshold_modifier": 0,
+        "rsi_threshold_modifier": -3,
         "use_atr_filter": False,
         "use_sector_limits": True,
-        "max_sector_positions": 3,
-        "cash_reserve_pct": 0.10,
-        "max_positions": 6,
+        "max_sector_positions": 4,
+        "cash_reserve_pct": 0.08,
+        "max_positions": 8,
         "can_trade_us": True,
-        "min_notional": 2.0,
+        "min_notional": 1.0,
     })
     aggressive: dict = field(default_factory=lambda: {
         "name": "Aggressive",
-        "z_score_threshold": -1.0,
+        "z_score_threshold": -0.8,
         "kelly_fraction": 1.0,
-        "ev_minimum": 0.0,
-        "sharpe_minimum": 0.0,
+        "ev_minimum": -0.002,
+        "sharpe_minimum": -0.2,
         "use_rsi_filter": False,
-        "rsi_threshold_modifier": -10,
+        "rsi_threshold_modifier": -15,
         "use_atr_filter": False,
         "use_sector_limits": False,
         "max_sector_positions": 99,
-        "cash_reserve_pct": 0.05,
-        "max_positions": 10,
+        "cash_reserve_pct": 0.02,
+        "max_positions": 15,
         "can_trade_us": True,
-        "min_notional": 1.0,
+        "min_notional": 0.50,
     })
     pennies: dict = field(default_factory=lambda: {
         "name": "Pennies",
