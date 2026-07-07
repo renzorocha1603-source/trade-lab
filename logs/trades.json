@@ -3334,5 +3334,53 @@
     "fees_cad": 0.38,
     "reason": "DIP BUY | Z:-1.91 | Size:4.2% | RSI:48",
     "ai_modified": true
+  },
+  {
+    "timestamp": "2026-07-07T19:01:59.977270",
+    "symbol": "XLM-USD",
+    "action": "BUY",
+    "quantity": 0.0696,
+    "price_usd": 0.19,
+    "value_cad": 0.02,
+    "fx_rate": 1.42,
+    "fees_cad": 0.0,
+    "reason": "DIP BUY | Z:-2.98 | Size:7.0% | ATR:0.98%",
+    "ai_modified": true
+  },
+  {
+    "timestamp": "2026-07-07T19:02:01.750698",
+    "symbol": "TSM",
+    "action": "BUY",
+    "quantity": 0.0421,
+    "price_usd": 430.97,
+    "value_cad": 25.76,
+    "fx_rate": 1.42,
+    "fees_cad": 0.39,
+    "reason": "DIP BUY | Z:-1.93 | Size:4.2% | RSI:48",
+    "ai_modified": true
+  },
+  {
+    "timestamp": "2026-07-07T19:02:01.753472",
+    "symbol": "TSM",
+    "action": "BUY",
+    "quantity": 0.0421,
+    "price_usd": 430.97,
+    "value_cad": 25.76,
+    "fx_rate": 1.42,
+    "fees_cad": 0.39,
+    "reason": "DIP BUY | Z:-1.93 | Size:4.2% | RSI:48",
+    "ai_modified": true
+  },
+  {
+    "timestamp": "2026-07-07T19:02:01.757911",
+    "symbol": "TSM",
+    "action": "BUY",
+    "quantity": 0.0421,
+    "price_usd": 430.97,
+    "value_cad": 25.76,
+    "fx_rate": 1.42,
+    "fees_cad": 0.39,
+    "reason": "DIP BUY | Z:-1.93 | Size:4.2% | RSI:48",
+    "ai_modified": true
   }
 ]
