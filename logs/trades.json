@@ -4390,5 +4390,53 @@
     "fees_cad": 0.16,
     "reason": "DIP BUY | Z:-1.91 | Size:4.2% | RSI:38",
     "ai_modified": true
+  },
+  {
+    "timestamp": "2026-07-07T19:54:29.415641",
+    "symbol": "VET-USD",
+    "action": "BUY",
+    "quantity": 0.0558,
+    "price_usd": 0.0,
+    "value_cad": 0.0,
+    "fx_rate": 1.42,
+    "fees_cad": 0.0,
+    "reason": "DIP BUY | Z:-2.29 | Size:5.6% | ATR:0.90%",
+    "ai_modified": true
+  },
+  {
+    "timestamp": "2026-07-07T19:54:29.806668",
+    "symbol": "XLK",
+    "action": "BUY",
+    "quantity": 0.0418,
+    "price_usd": 178.73,
+    "value_cad": 10.61,
+    "fx_rate": 1.42,
+    "fees_cad": 0.16,
+    "reason": "DIP BUY | Z:-1.91 | Size:4.2% | RSI:38",
+    "ai_modified": true
+  },
+  {
+    "timestamp": "2026-07-07T19:54:29.809545",
+    "symbol": "XLK",
+    "action": "BUY",
+    "quantity": 0.0418,
+    "price_usd": 178.73,
+    "value_cad": 10.61,
+    "fx_rate": 1.42,
+    "fees_cad": 0.16,
+    "reason": "DIP BUY | Z:-1.91 | Size:4.2% | RSI:38",
+    "ai_modified": true
+  },
+  {
+    "timestamp": "2026-07-07T19:54:29.815077",
+    "symbol": "XLK",
+    "action": "BUY",
+    "quantity": 0.0418,
+    "price_usd": 178.73,
+    "value_cad": 10.61,
+    "fx_rate": 1.42,
+    "fees_cad": 0.16,
+    "reason": "DIP BUY | Z:-1.91 | Size:4.2% | RSI:38",
+    "ai_modified": true
   }
 ]
