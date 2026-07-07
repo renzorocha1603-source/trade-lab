@@ -1,8 +1,8 @@
 """
-Crypto Pennies Strategy v2.8 — TRAINING MODE
-Ultra-aggressive trading to maximize learning opportunities.
-24/7 trading with loose filters — Letta learns from every outcome.
+Crypto Pennies Strategy v2.8 — SMART TRAINING MODE
+Looser thresholds for more real trading opportunities.
 Dual Mode: Dip Buying + Momentum Riding + Breakout entries.
+24/7 trading — Letta learns from genuine signals.
 """
 
 import logging
@@ -16,32 +16,28 @@ logger = logging.getLogger(__name__)
 
 
 class CryptoPenniesStrategy:
-    """
-    Pennies Strategy for Crypto — TRAINING MODE
-    Maximum trade volume for Letta's education.
-    """
+    """Pennies Strategy for Crypto — SMART TRAINING MODE"""
 
     def __init__(self, config):
         self.config = config
         self.crypto_config = config.crypto
-        
-        # TRAINING MODE — Ultra aggressive
-        self.atr_target = 1.2          # Smaller targets = faster exits = more trades
-        self.atr_stop = 0.8            # Tighter stops = faster learning
-        self.max_hold = 3.0            # Shorter holds = more cycles
-        self.kelly_frac = 0.5          # Bigger bets during training
-        self.min_volume_mult = 1.2     # Lower volume OK
-        self.fee_pct = config.crypto.fee_pct
-        self.min_net_ev = 0.002        # Almost any positive EV
 
-        # Training thresholds — ultra loose
-        self.dip_vwap_threshold = -0.3   # Any dip
-        self.momentum_vwap_threshold = 1.0  # Any momentum
-        self.bbw_min = 0.01              # Even tight bands
-        self.bbw_max = 0.25              # Allow extreme volatility
-        self.rsi_max = 85                # Only skip extreme overbought
-        self.risk_reward_min = 0.4       # Take marginal setups
-        self.max_positions = 10          # More simultaneous positions
+        self.atr_target = 1.2
+        self.atr_stop = 0.8
+        self.max_hold = 3.0
+        self.kelly_frac = 0.5
+        self.min_volume_mult = 1.2
+        self.fee_pct = config.crypto.fee_pct
+        self.min_net_ev = 0.002
+
+        # Looser thresholds for SMART TRAINING
+        self.dip_vwap_threshold = -0.3
+        self.momentum_vwap_threshold = 1.0
+        self.bbw_min = 0.01
+        self.bbw_max = 0.25
+        self.rsi_max = 78
+        self.risk_reward_min = 0.4
+        self.max_positions = 10
 
         self.active_positions = {}
         self._market_cap_cache = {}
@@ -49,12 +45,12 @@ class CryptoPenniesStrategy:
 
         self.crypto_symbols = [
             "BTC-USD", "ETH-USD", "SOL-USD", "XRP-USD", "DOGE-USD",
-            "ADA-USD", "AVAX-USD", "DOT-USD", "MATIC-USD", "LINK-USD",
-            "UNI-USD", "ATOM-USD", "XLM-USD", "FIL-USD", "NEAR-USD",
-            "ALGO-USD", "VET-USD", "ICP-USD", "GRT-USD", "FTM-USD"
+            "ADA-USD", "AVAX-USD", "DOT-USD", "LINK-USD",
+            "ATOM-USD", "XLM-USD", "FIL-USD", "NEAR-USD",
+            "ALGO-USD", "VET-USD", "ICP-USD"
         ]
 
-        logger.info(f"Crypto TRAINING MODE | {len(self.crypto_symbols)} symbols | Ultra-aggressive | Max positions: {self.max_positions}")
+        logger.info(f"Crypto SMART MODE | {len(self.crypto_symbols)} symbols | Dip Z:<{self.dip_vwap_threshold} | Mom Z:>{self.momentum_vwap_threshold} | RSI<{self.rsi_max}")
 
     # ==================== DATA SOURCES ====================
 
@@ -103,11 +99,10 @@ class CryptoPenniesStrategy:
             coin_map = {
                 "BTC-USD": "bitcoin", "ETH-USD": "ethereum", "SOL-USD": "solana",
                 "XRP-USD": "ripple", "DOGE-USD": "dogecoin", "ADA-USD": "cardano",
-                "AVAX-USD": "avalanche-2", "DOT-USD": "polkadot", "MATIC-USD": "matic-network",
-                "LINK-USD": "chainlink", "UNI-USD": "uniswap", "ATOM-USD": "cosmos",
-                "XLM-USD": "stellar", "FIL-USD": "filecoin", "NEAR-USD": "near",
-                "ALGO-USD": "algorand", "VET-USD": "vechain", "ICP-USD": "internet-computer",
-                "GRT-USD": "the-graph", "FTM-USD": "fantom"
+                "AVAX-USD": "avalanche-2", "DOT-USD": "polkadot", "LINK-USD": "chainlink",
+                "ATOM-USD": "cosmos", "XLM-USD": "stellar", "FIL-USD": "filecoin",
+                "NEAR-USD": "near", "ALGO-USD": "algorand", "VET-USD": "vechain",
+                "ICP-USD": "internet-computer"
             }
             coin_id = coin_map.get(symbol, symbol.lower().replace("-usd", ""))
             url = f"https://api.coingecko.com/api/v3/simple/price"
@@ -198,12 +193,12 @@ class CryptoPenniesStrategy:
         rs = gains / losses
         return 100.0 - (100.0 / (1.0 + rs))
 
-    # ==================== SIGNAL GENERATION (TRAINING MODE) ====================
+    # ==================== SIGNAL GENERATION (SMART TRAINING) ====================
 
     def generate_signal(self, symbol: str, price_history: pd.Series = None) -> Optional[dict]:
-        """Ultra-aggressive signal generation for Letta's education"""
+        """Smart signal generation with looser thresholds for training"""
 
-        high_vol_coins = ["DOGE-USD", "SOL-USD", "AVAX-USD", "NEAR-USD", "GRT-USD", "FTM-USD", "ICP-USD"]
+        high_vol_coins = ["DOGE-USD", "SOL-USD", "AVAX-USD", "NEAR-USD", "ICP-USD"]
         if symbol in high_vol_coins:
             interval = "15m"
         elif "BTC" in symbol:
@@ -233,47 +228,40 @@ class CryptoPenniesStrategy:
 
         logger.info(f"{symbol} [{data_source}] | ${current_price:.2f} | Z:{vwap_z:.2f} | ATR:{atr:.2%} | BBW:{bb_width:.3f} | Vol:{vol_ratio:.1f}x | RSI:{rsi:.0f} | {cap_tier}")
 
-        # ==================== TRAINING MODE: 3 ENTRY TYPES ====================
-        
         mode = None
         target_pct = 0
         stop_pct = 0
         position_multiplier = 1.0
 
-        # MODE 1: DIP BUYING — Price below VWAP
+        # MODE 1: DIP BUYING
         if vwap_z < self.dip_vwap_threshold and rsi < self.rsi_max and bb_width > self.bbw_min:
             mode = "DIP"
             target_pct = atr * self.atr_target
             stop_pct = atr * self.atr_stop
-            # Bigger position on deeper dips
             if vwap_z < -1.5: position_multiplier = 1.5
             elif vwap_z < -1.0: position_multiplier = 1.2
 
-        # MODE 2: MOMENTUM RIDING — Price above VWAP, strong volume
+        # MODE 2: MOMENTUM RIDING
         elif vwap_z > self.momentum_vwap_threshold and vol_ratio > self.min_volume_mult and rsi < self.rsi_max and bb_width > self.bbw_min:
             mode = "MOMENTUM"
-            target_pct = atr * 0.8   # Smaller target for momentum
-            stop_pct = atr * 0.5     # Tighter stop
-            position_multiplier = 0.8  # Smaller position for chases
+            target_pct = atr * 0.8
+            stop_pct = atr * 0.5
+            position_multiplier = 0.8
 
-        # MODE 3: BREAKOUT — Bollinger squeeze breaking
+        # MODE 3: BREAKOUT
         elif bb_width < self.bbw_min and vol_ratio > 2.5 and rsi > 50:
             mode = "BREAKOUT"
             target_pct = atr * 1.5
             stop_pct = atr * 0.6
-            position_multiplier = 1.3  # Bigger on breakouts
+            position_multiplier = 1.3
 
         if mode is None:
             return None
 
-        # Cap tier adjustment — all tiers allowed in training
         cap_multiplier = {"mega_cap": 1.0, "large_cap": 0.9, "mid_cap": 0.7, "small_cap": 0.5, "micro_cap": 0.3, "unknown": 0.3}
         tier_mult = cap_multiplier.get(cap_tier, 0.3)
-
-        # Extra vol adjustment
         if atr > 0.06: tier_mult *= 0.6
 
-        # Fee-aware check
         net_target = target_pct - (self.fee_pct * 2)
         net_risk = stop_pct + (self.fee_pct * 2)
         if net_target < self.min_net_ev: return None
@@ -281,18 +269,14 @@ class CryptoPenniesStrategy:
         risk_reward = net_target / net_risk if net_risk > 0 else 0
         if risk_reward < self.risk_reward_min: return None
 
-        # Kelly sizing
-        p_win = 0.52  # Conservative estimate for training
+        p_win = 0.52
         b_ratio = risk_reward
         kelly = (p_win * b_ratio - (1 - p_win)) / b_ratio if b_ratio > 0 else 0
         position_size = max(0.01, min(0.25, kelly * self.kelly_frac * tier_mult * position_multiplier))
 
         return {
-            "symbol": symbol,
-            "action": "BUY",
-            "mode": mode,
-            "current_price": current_price,
-            "data_source": data_source,
+            "symbol": symbol, "action": "BUY", "mode": mode,
+            "current_price": current_price, "data_source": data_source,
             "quantity_pct": round(position_size, 4),
             "target_pct": round(target_pct, 4),
             "stop_pct": round(stop_pct, 4),
@@ -306,28 +290,24 @@ class CryptoPenniesStrategy:
             "reason": f"{mode} | Z:{vwap_z:.2f} | ATR:{atr:.2%} | Vol:{vol_ratio:.1f}x | RSI:{rsi:.0f} | {cap_tier}"
         }
 
-    # ==================== EXIT CHECK ====================
-
     def should_exit(self, symbol: str, current_price: float, entry_price: float,
                    entry_time: str, target_pct: float, stop_pct: float) -> Optional[str]:
         pnl_pct = (current_price - entry_price) / entry_price
-        if pnl_pct >= target_pct: return f"SELL (profit: +{pnl_pct:.2%})"
-        if pnl_pct <= -stop_pct: return f"SELL (stop: {pnl_pct:.2%})"
+        if pnl_pct >= target_pct: return f"SELL (+{pnl_pct:.2%})"
+        if pnl_pct <= -stop_pct: return f"SELL ({pnl_pct:.2%})"
         try:
             entry_dt = datetime.fromisoformat(entry_time)
             hours_held = (datetime.now() - entry_dt).total_seconds() / 3600
-            if hours_held >= self.max_hold: return f"SELL (time: {hours_held:.1f}h)"
+            if hours_held >= self.max_hold: return f"SELL ({hours_held:.1f}h)"
         except: pass
         return None
 
     def get_stats(self) -> dict:
         return {
-            "strategy": "Crypto Pennies — TRAINING MODE",
-            "mode": "Ultra-aggressive",
+            "strategy": "Crypto Pennies — SMART TRAINING",
             "symbols": len(self.crypto_symbols),
             "max_positions": self.max_positions,
             "dip_threshold": self.dip_vwap_threshold,
             "momentum_threshold": self.momentum_vwap_threshold,
             "rsi_max": self.rsi_max,
-            "kelly_fraction": self.kelly_frac,
         }

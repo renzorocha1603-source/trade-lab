@@ -1,6 +1,7 @@
 """
-Fiat Pennies Strategy — Small consistent wins on forex pairs.
-Same mathematical model as crypto, tuned for tighter spreads and lower volatility.
+Fiat Pennies Strategy — SMART TRAINING MODE
+Looser thresholds for more real trading opportunities.
+Same mathematical model as crypto, tuned for tighter spreads.
 Data from Yahoo Finance (free, works everywhere).
 """
 
@@ -15,7 +16,7 @@ logger = logging.getLogger(__name__)
 
 
 class FiatPenniesStrategy:
-    """Pennies Strategy for Forex"""
+    """Pennies Strategy for Forex — SMART TRAINING MODE"""
 
     def __init__(self, config):
         self.config = config
@@ -24,17 +25,22 @@ class FiatPenniesStrategy:
         self.atr_stop = config.fiat.atr_multiplier_stop
         self.max_hold = config.fiat.max_hold_hours
         self.kelly_frac = config.fiat.kelly_fraction
-        self.min_volume_mult = config.fiat.min_volume_multiplier
+        self.min_volume_mult = 1.2
         self.fee_pct = config.fiat.fee_pct
         self.min_net_ev = config.fiat.min_net_ev
+
+        # Looser thresholds for SMART TRAINING
+        self.dip_vwap_threshold = -0.2
+        self.momentum_vwap_threshold = 1.0
+        self.rsi_max = 75
+        self.bbw_min = 0.003
 
         self.active_positions = {}
         self.fiat_symbols = config.fiat.fiat_symbols
 
-        logger.info(f"Fiat Pennies Strategy | {len(self.fiat_symbols)} pairs | Target: {self.atr_target}× ATR | Stop: {self.atr_stop}× ATR | Max Hold: {self.max_hold}h")
+        logger.info(f"Fiat SMART MODE | {len(self.fiat_symbols)} pairs | Dip Z:<{self.dip_vwap_threshold} | Mom Z:>{self.momentum_vwap_threshold} | RSI<{self.rsi_max}")
 
     def fetch_yahoo_forex(self, symbol: str, period: str = "5d", interval: str = "1h") -> Optional[pd.DataFrame]:
-        """Fetch forex data from Yahoo Finance"""
         try:
             import yfinance as yf
             ticker = yf.Ticker(symbol)
@@ -109,7 +115,7 @@ class FiatPenniesStrategy:
         return 100.0 - (100.0 / (1.0 + rs))
 
     def generate_signal(self, symbol: str) -> Optional[dict]:
-        """Generate a trading signal for forex"""
+        """Smart signal generation with looser thresholds"""
         df = self.fetch_yahoo_forex(symbol)
         if df is None or len(df) < 20:
             return None
@@ -125,16 +131,25 @@ class FiatPenniesStrategy:
 
         logger.info(f"Fiat {symbol} | ${current_price:.4f} | Z:{vwap_z:.2f} | ATR:{atr:.3%} | BBW:{bb_width:.4f} | Vol:{vol_ratio:.1f}x | RSI:{rsi:.0f}")
 
-        # Entry: DIP mode (same as crypto but tighter)
-        if vwap_z < -0.5 and rsi < 65 and bb_width > 0.005 and vol_ratio > self.min_volume_mult:
+        mode = None
+        target_pct = 0
+        stop_pct = 0
+
+        # DIP MODE
+        if vwap_z < self.dip_vwap_threshold and rsi < self.rsi_max and bb_width > self.bbw_min:
             mode = "DIP"
-        elif vwap_z > 1.5 and vol_ratio > 1.5 and rsi < 75:
+            target_pct = atr * self.atr_target
+            stop_pct = atr * self.atr_stop
+
+        # MOMENTUM MODE
+        elif vwap_z > self.momentum_vwap_threshold and vol_ratio > 1.5 and rsi < self.rsi_max:
             mode = "MOMENTUM"
-        else:
+            target_pct = atr * 1.5
+            stop_pct = atr * 0.6
+
+        if mode is None:
             return None
 
-        target_pct = atr * self.atr_target
-        stop_pct = atr * self.atr_stop
         net_target = target_pct - (self.fee_pct * 2)
         net_risk = stop_pct + (self.fee_pct * 2)
         if net_target < self.min_net_ev: return None
@@ -173,4 +188,9 @@ class FiatPenniesStrategy:
         return None
 
     def get_stats(self) -> dict:
-        return {"strategy": "Fiat Pennies Scalping", "pairs": len(self.fiat_symbols)}
+        return {
+            "strategy": "Fiat Pennies — SMART TRAINING",
+            "pairs": len(self.fiat_symbols),
+            "dip_threshold": self.dip_vwap_threshold,
+            "rsi_max": self.rsi_max,
+        }

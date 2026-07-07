@@ -190,7 +190,7 @@ class TradeLab:
                 best_hist = hist
 
         # Only trade if we found a genuine dip
-        if best_symbol and best_hist is not None and best_z < -0.3:
+        if best_symbol and best_hist is not None and best_z < -0.1:
             current_price = prices.get(best_symbol, 0)
             rsi = self.calculate_rsi(best_hist.values)
             
