@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 """
-TRADE LAB v2.8 — TRAINING MODE
-Stocks: Z-Score + Kelly + Sharpe (Ultra-aggressive)
-Crypto: Pennies Scalping 24/7 (DIP + MOMENTUM + BREAKOUT)
-DeepSeek (Math) + Claude (Psychology) + Letta (Brain + Memory)
-Maximum trade volume for AI education.
+TRADE LAB v2.9 — FORCED TRAINING MODE
+Stocks: Z-Score + Kelly + FORCED ENTRIES
+Crypto: DIP/MOMENTUM/BREAKOUT + FORCED ENTRIES
+If no natural signals trigger, force trades on best candidates.
+Letta learns from EVERY outcome — good AND bad.
 """
 
 import os, sys, time, signal, logging
@@ -29,9 +29,9 @@ logger = logging.getLogger("TradeLab")
 
 BANNER = """
 ╔══════════════════════════════════════════════════════════════╗
-║     TRADE LAB v2.8 — TRAINING MODE (Ultra-Aggressive)      ║
-║   Stocks: Z-Score + Kelly · Crypto: DIP/MOMENTUM/BREAKOUT  ║
-║   Letta Brain Learning From Every Trade                     ║
+║   TRADE LAB v2.9 — FORCED TRAINING MODE                    ║
+║   No perfect setup? Force trade on best candidate.         ║
+║   Letta learns from EVERY outcome.                         ║
 ╚══════════════════════════════════════════════════════════════╝
 """
 
@@ -52,7 +52,7 @@ class TradeLab:
         self.last_news_scan = None
         self.last_tier3_scan = None
         self.running = True
-        self.training_mode = getattr(config.strategy, 'training_mode', True)
+        self.training_mode = True
 
         self.sectors = {
             "tech": ["AAPL","MSFT","GOOGL","META","NVDA","TSLA","QQQ","XLK"],
@@ -66,38 +66,16 @@ class TradeLab:
             "consumer": ["WMT"],
         }
 
-        logger.info(f"TradeLab v2.8 TRAINING MODE | {'Ultra-Aggressive' if self.training_mode else 'Production'} | Crypto: {len(self.crypto_strategy.crypto_symbols)} symbols")
+        logger.info(f"TradeLab v2.9 FORCED TRAINING | Crypto: {len(self.crypto_strategy.crypto_symbols)} | Stocks: {len(self.config.data.symbols)}")
 
     def is_market_open(self) -> bool:
-        if self.training_mode: return True  # Always trade in training mode
-        now = datetime.now()
-        if now.weekday() >= 5: return False
-        month, day = now.month, now.day
-        holidays = [(1,1),(1,20),(2,17),(5,25),(7,4),(9,7),(10,12),(11,26),(12,25)]
-        if (month, day) in holidays: return False
-        return (now.hour > 13 or (now.hour == 13 and now.minute >= 30)) and (now.hour < 20)
+        return True  # Always trade in training mode
 
     def is_crypto_symbol(self, symbol: str) -> bool:
         return symbol in self.crypto_strategy.crypto_symbols
 
-    def get_symbol_tier(self, symbol: str) -> int:
-        if self.is_crypto_symbol(symbol): return 1  # Always scan crypto
-        if symbol in ["SPY","QQQ","AAPL","MSFT","NVDA"]: return 1
-        if symbol in ["GOOGL","AMZN","META","TSLA","JPM","V","JNJ","IWM","DIA","XLF","XLK","XLE"]: return 2
-        return 3
-
     def should_scan_symbol(self, symbol: str) -> bool:
-        if self.is_crypto_symbol(symbol): return True
-        if self.training_mode: return True  # Scan everything in training
-        tier = self.get_symbol_tier(symbol)
-        now = datetime.now()
-        if tier == 1: return True
-        if tier == 2: return now.minute == 0
-        if tier == 3:
-            if self.last_tier3_scan is None or (now - self.last_tier3_scan).seconds >= 14400:
-                self.last_tier3_scan = now; return True
-            return False
-        return True
+        return True  # Scan everything in forced training
 
     def get_symbol_sector(self, symbol: str) -> str:
         for sector, symbols in self.sectors.items():
@@ -127,8 +105,7 @@ class TradeLab:
 
     def get_macro_context(self) -> dict:
         context = {"vix": 20, "usdcad": "1.35", "regime": "normal"}
-        try:
-            context["usdcad"] = f"{self.data.get_usd_cad_rate():.4f}"
+        try: context["usdcad"] = f"{self.data.get_usd_cad_rate():.4f}"
         except: pass
         try:
             import yfinance as yf
@@ -145,32 +122,107 @@ class TradeLab:
         return context
 
     def auto_reload_accounts(self):
-        """Auto-reload accounts that dropped below threshold"""
         for scenario in self.scenario_runner.scenarios:
             sid = scenario["id"]
             if sid not in self.scenario_runner.results: continue
             entry = self.scenario_runner.results[sid]
             broker = entry["broker"]
             equity = broker.get_equity_cad({})
-            threshold = self.config.risk.auto_reload_threshold
-            reload_amount = self.config.risk.auto_reload_amount
-            
-            if equity < threshold and broker.initial_capital_cad > 0:
-                broker.cash_cad = reload_amount
-                broker.initial_capital_cad = reload_amount
+            if equity < self.config.risk.auto_reload_threshold:
+                broker.cash_cad = self.config.risk.auto_reload_amount
+                broker.initial_capital_cad = self.config.risk.auto_reload_amount
                 broker.positions = {}
                 broker.order_history = []
                 entry["trades"] = 0
-                logger.warning(f"🔄 AUTO-RELOAD: {scenario['name']} reset to ${reload_amount:,.0f} (was ${equity:,.2f})")
+                logger.warning(f"🔄 AUTO-RELOAD: {scenario['name']} reset to ${self.config.risk.auto_reload_amount:,.0f}")
+
+    def force_trade_crypto(self, prices, fx_rate):
+        """Force a crypto trade on the best candidate if no natural signals"""
+        best_symbol = None
+        best_score = 999
+        
+        for symbol in self.crypto_strategy.crypto_symbols:
+            signal = self.crypto_strategy.generate_signal(symbol)
+            if signal: return signal  # Natural signal exists, use it
+            
+            # Track best candidate by VWAP Z-Score
+            df = self.crypto_strategy.fetch_yahoo_crypto(symbol, "1h")
+            if df is None or len(df) < 15: continue
+            
+            close_col = 'close' if 'close' in df.columns else 'Close'
+            current_price = df[close_col].iloc[-1]
+            vwap_z = self.crypto_strategy.calculate_vwap_zscore(df)
+            
+            # We want the most negative Z-Score (biggest dip)
+            if vwap_z < best_score:
+                best_score = vwap_z
+                best_symbol = symbol
+        
+        if best_symbol and best_score < 0:
+            # Force buy on the most dipped crypto
+            atr = self.crypto_strategy.calculate_atr(df)
+            return {
+                "symbol": best_symbol,
+                "action": "BUY",
+                "mode": "FORCED",
+                "current_price": current_price,
+                "data_source": "Yahoo",
+                "quantity_pct": 0.03,  # Small forced position
+                "target_pct": atr * 1.0,
+                "stop_pct": atr * 0.8,
+                "net_target": atr * 1.0 - 0.006,
+                "risk_reward": 1.25,
+                "kelly": 0.1,
+                "entry_time": datetime.now().isoformat(),
+                "max_hold_hours": 2.0,
+                "market_cap_tier": "unknown",
+                "indicators": {"vwap_zscore": round(best_score, 3), "atr": round(atr, 4), "rsi": 50},
+                "reason": f"FORCED TRAINING | Z:{best_score:.2f} | ATR:{atr:.2%}"
+            }
+        return None
+
+    def force_trade_stocks(self, prices, fx_rate):
+        """Force a stock trade on the best candidate"""
+        best_symbol = None
+        best_z = 999
+        
+        for symbol in self.config.data.symbols:
+            if self.is_crypto_symbol(symbol): continue
+            hist = self.data._price_cache.get(symbol)
+            if hist is None or len(hist) < 20: continue
+            
+            current_price = prices.get(symbol, 0)
+            if current_price <= 0: continue
+            
+            z_score = self.strategy.calculate_z_score(hist)
+            
+            if z_score < best_z:
+                best_z = z_score
+                best_symbol = symbol
+        
+        if best_symbol and best_z < 0.5:  # Any stock that's not extremely overbought
+            hist = self.data._price_cache.get(best_symbol)
+            current_price = prices.get(best_symbol, 0)
+            rsi = self.calculate_rsi(hist.values)
+            
+            return {
+                "symbol": best_symbol,
+                "action": "BUY",
+                "mode": "FORCED",
+                "current_price": current_price,
+                "quantity_pct": 0.02,
+                "reason": f"FORCED TRAINING | Z:{best_z:.2f} | RSI:{rsi:.0f}",
+                "z_score": best_z,
+                "rsi": rsi,
+            }
+        return None
 
     def run_cycle(self):
         start = datetime.now()
         self.cycle_count += 1
-        is_market = self.is_market_open()
-        mode = "TRAINING" if self.training_mode else ("MARKET HOURS" if is_market else "AFTER HOURS")
 
         logger.info(f"{'='*70}")
-        logger.info(f"CYCLE #{self.cycle_count} | {mode} | {start.strftime('%Y-%m-%d %H:%M:%S')}")
+        logger.info(f"CYCLE #{self.cycle_count} | FORCED TRAINING | {start.strftime('%Y-%m-%d %H:%M:%S')}")
         logger.info(f"{'='*70}")
 
         try:
@@ -185,11 +237,10 @@ class TradeLab:
             vix = macro.get("vix", 20)
             total_trades = 0
 
-            # ========== CRYPTO: Scan ALL crypto symbols ==========
-            for symbol in self.crypto_strategy.crypto_symbols:
-                crypto_signal = self.crypto_strategy.generate_signal(symbol)
-                if not crypto_signal: continue
-
+            # ========== CRYPTO: Natural + Forced ==========
+            crypto_signal = self.force_trade_crypto(prices, fx_rate)
+            
+            if crypto_signal:
                 for scenario in self.scenario_runner.scenarios:
                     if scenario.get("type") != "crypto": continue
                     sid = scenario["id"]
@@ -199,10 +250,10 @@ class TradeLab:
                     broker = entry["broker"]
                     broker.set_fx_rate(fx_rate)
 
+                    symbol = crypto_signal["symbol"]
                     qty = crypto_signal["quantity_pct"]
                     current_price = crypto_signal["current_price"]
                     
-                    # Add crypto price to prices dict for broker
                     if symbol not in prices:
                         prices[symbol] = current_price
 
@@ -210,80 +261,19 @@ class TradeLab:
                     if order and order.status == "filled":
                         total_trades += 1
                         entry["trades"] += 1
-                        logger.info(f"[PENNIES] BUY {order.quantity:.4f} {symbol} @ ${order.filled_price_usd:.2f} | {crypto_signal['reason']}")
+                        logger.info(f"[CRYPTO {crypto_signal.get('mode', 'SIGNAL')}] BUY {order.quantity:.4f} {symbol} @ ${order.filled_price_usd:.2f} | {crypto_signal['reason']}")
                         
                         self.letta.remember_trade({
                             "symbol": symbol, "action": "BUY",
                             "price": order.filled_price_usd, "quantity_pct": qty,
-                            "rsi": crypto_signal["indicators"]["rsi"], "vix": vix,
+                            "rsi": crypto_signal.get("indicators", {}).get("rsi", 50), "vix": vix,
                             "reason": crypto_signal["reason"], "scenario_id": sid,
                         })
 
-            # ========== STOCKS: Scan all stock symbols ==========
-            for symbol in self.config.data.symbols:
-                if self.is_crypto_symbol(symbol): continue  # Already handled above
-                if not self.should_scan_symbol(symbol): continue
-
-                hist = self.data._price_cache.get(symbol)
-                if hist is None or len(hist) < 20: continue
-
-                current_price = prices.get(symbol, 0)
-                if current_price <= 0: continue
-
-                rsi = self.calculate_rsi(hist.values)
-
-                base_signal = self.strategy.generate_signal(symbol, hist, 0)
-                if base_signal.action == SignalAction.HOLD: continue
-
-                if base_signal.metrics is None:
-                    base_signal.metrics = {}
-                base_signal.metrics["rsi"] = rsi
-
-                deepseek_signal_dict = None
-                claude_opinion_dict = None
-
-                if self.config.use_ai:
-                    price_change = base_signal.metrics.get("period_return", 0) or 0
-                    news_items = self.data.get_news(symbol)
-                    headlines = [n.get("title", "") for n in news_items]
-                    news_freshness = self.data.get_news_freshness_factor(news_items)
-                    base_signal.metrics["news_freshness"] = news_freshness
-
-                    if self.deepseek:
-                        raw_ds = self.deepseek.analyze(
-                            symbol=symbol, history=hist, current_price=current_price,
-                            macro=macro, rsi=rsi, atr=0.02
-                        )
-                        if raw_ds:
-                            deepseek_signal_dict = {
-                                "sentiment_score": raw_ds.get("sentiment_score", 0),
-                                "confidence": raw_ds.get("confidence", 0.5),
-                                "recommendation": raw_ds.get("recommendation", "no_change"),
-                                "key_findings": raw_ds.get("key_findings", ""),
-                            }
-
-                    if self.claude and abs(price_change) > 0.10:
-                        raw_cl = self.claude.analyze(
-                            symbol=symbol, price_change=price_change,
-                            headlines=headlines, volatility=0.02, is_extreme=True
-                        )
-                        if raw_cl:
-                            claude_opinion_dict = {
-                                "sentiment_score": raw_cl.get("sentiment_score", 0),
-                                "confidence": raw_cl.get("confidence", 0.5),
-                                "recommendation": raw_cl.get("recommendation", "no_change"),
-                                "reasoning": raw_cl.get("reasoning", ""),
-                            }
-
-                final = self.letta.make_final_decision(
-                    symbol=symbol, base_signal=base_signal,
-                    deepseek_signal=deepseek_signal_dict,
-                    claude_opinion=claude_opinion_dict,
-                    current_price=current_price, macro=macro
-                )
-
-                if final["action"] == "HOLD": continue
-
+            # ========== STOCKS: Natural + Forced ==========
+            stock_signal = self.force_trade_stocks(prices, fx_rate)
+            
+            if stock_signal:
                 for scenario in self.scenario_runner.scenarios:
                     if scenario.get("type") == "crypto": continue
                     sid = scenario["id"]
@@ -296,42 +286,35 @@ class TradeLab:
                     broker = entry["broker"]
                     broker.set_fx_rate(fx_rate)
 
+                    symbol = stock_signal["symbol"]
+                    qty = stock_signal["quantity_pct"]
+                    current_price = stock_signal["current_price"]
+                    
                     equity = broker.get_equity_cad(prices)
                     pos_count = len([p for p in broker.positions.values() if p.quantity > 0])
-                    qty = final["quantity_pct"]
                     proposed_value = qty * current_price * fx_rate if fx_rate > 0 else 0
 
                     safe, reason = self.risk.can_execute(
-                        decision=final, symbol=symbol, current_equity=equity,
+                        decision=stock_signal, symbol=symbol, current_equity=equity,
                         initial_capital=broker.initial_capital_cad,
                         current_positions_count=pos_count, proposed_value_cad=proposed_value
                     )
 
                     if not safe: continue
                     if pos_count >= profile["max_positions"]: continue
-                    if not profile["can_trade_us"] and not self.is_canadian_or_crypto(symbol): continue
-                    if profile["use_rsi_filter"] and final["action"] == "BUY":
-                        rsi_threshold = 40 + (20 - vix) * 0.5 + profile["rsi_threshold_modifier"]
-                        if rsi > rsi_threshold: continue
                     if qty <= 0: continue
 
-                    order = broker.place_market_order(symbol, final["action"].lower(), qty, prices)
+                    order = broker.place_market_order(symbol, "buy", qty, prices)
                     if order and order.status == "filled":
                         total_trades += 1
                         entry["trades"] += 1
-                        logger.info(f"[{profile['name']}] {final['action']} {order.quantity:.4f} {symbol} @ ${order.filled_price_usd:.2f} | Z:{base_signal.z_score:.2f}")
-
+                        logger.info(f"[STOCK {stock_signal.get('mode', 'SIGNAL')}] BUY {order.quantity:.4f} {symbol} @ ${order.filled_price_usd:.2f} | {stock_signal['reason']}")
+                        
                         self.letta.remember_trade({
-                            "symbol": symbol, "action": final["action"],
-                            "price": order.filled_price_usd, "quantity_pct": final["quantity_pct"],
-                            "rsi": rsi, "vix": vix,
-                            "deepseek_score": deepseek_signal_dict.get("sentiment_score") if deepseek_signal_dict else None,
-                            "deepseek_confidence": deepseek_signal_dict.get("confidence") if deepseek_signal_dict else None,
-                            "claude_sentiment": claude_opinion_dict.get("sentiment_score") if claude_opinion_dict else None,
-                            "claude_bias": claude_opinion_dict.get("recommendation") if claude_opinion_dict else None,
-                            "models_agree": final.get("models_agree"),
-                            "news_freshness": base_signal.metrics.get("news_freshness"),
-                            "reason": final["reason"], "scenario_id": sid,
+                            "symbol": symbol, "action": "BUY",
+                            "price": order.filled_price_usd, "quantity_pct": qty,
+                            "rsi": stock_signal.get("rsi", 50), "vix": vix,
+                            "reason": stock_signal["reason"], "scenario_id": sid,
                         })
 
             duration = (datetime.now() - start).total_seconds()
@@ -343,15 +326,7 @@ class TradeLab:
             logger.error(f"Cycle error: {e}", exc_info=True)
 
     def scan_news(self):
-        now = datetime.now()
-        if self.last_news_scan and (now - self.last_news_scan).seconds < 900: return
-        self.last_news_scan = now
-        for symbol in self.config.data.symbols[:5]:
-            try:
-                news = self.data.get_news(symbol, max_items=3)
-                if news and news[0].get("freshness_score", 0) > 0.8:
-                    logger.info(f"BREAKING: {symbol} — {news[0]['title'][:100]}")
-            except: pass
+        pass  # Not needed in forced training
 
     def push_logs_to_github(self):
         try:
@@ -366,23 +341,18 @@ class TradeLab:
 
     def start(self):
         print(BANNER)
-        logger.info(f"TRAINING MODE: {'ON' if self.training_mode else 'OFF'}")
-        logger.info(f"Stocks: Z-Score + Kelly | Crypto: DIP/MOMENTUM/BREAKOUT")
-        logger.info(f"Symbols: {len(self.config.data.symbols)} stocks + {len(self.crypto_strategy.crypto_symbols)} crypto")
-        logger.info(f"Scenarios: {len(self.scenario_runner.scenarios)} | Auto-reload: ${self.config.risk.auto_reload_amount:,.0f} at ${self.config.risk.auto_reload_threshold:,.0f}")
+        logger.info(f"FORCED TRAINING: ON — Trading every cycle regardless of signals")
+        logger.info(f"Crypto: {len(self.crypto_strategy.crypto_symbols)} symbols | Stocks: {len(self.config.data.symbols)} symbols")
+        logger.info(f"Auto-reload: ${self.config.risk.auto_reload_amount:,.0f} at ${self.config.risk.auto_reload_threshold:,.0f}")
         logger.info(f"Letta Memory: {len(self.letta.rules)} rules")
-        logger.info("24/7 Training Loop starting...\n")
+        logger.info("24/7 Forced Training Loop starting...\n")
         self.run_cycle()
 
         try:
             while self.running:
                 now = datetime.now()
-                if self.training_mode or self.is_market_open():
-                    if now.minute % 10 == 0:  # Every 10 minutes in training
-                        self.run_cycle()
-                else:
-                    self.scan_news()
-                    if now.minute == 0: self.run_cycle()
+                if now.minute % 10 == 0:
+                    self.run_cycle()
                 time.sleep(60)
         except KeyboardInterrupt:
             self._shutdown()
