@@ -5,6 +5,7 @@ Stocks: Z-Score + Kelly + FORCED ENTRIES
 Crypto: DIP/MOMENTUM/BREAKOUT + FORCED ENTRIES
 Fiat: Pennies Scalping + FORCED ENTRIES
 Letta learns from EVERY outcome.
+GitHub token authentication for log pushing.
 """
 
 import os, sys, time, signal, logging
@@ -227,6 +228,7 @@ class TradeLab:
                     if order and order.status == "filled":
                         total_trades += 1
                         entry["trades"] += 1
+                        self.tracker.record_trade(symbol, "BUY", order.quantity, order.filled_price_usd, crypto_signal["reason"], True, fx_rate, order.fx_fee_cad)
                         logger.info(f"[CRYPTO {crypto_signal.get('mode', 'SIGNAL')}] BUY {order.quantity:.4f} {symbol} @ ${order.filled_price_usd:.2f} | {crypto_signal['reason']}")
                         self.letta.remember_trade({
                             "symbol": symbol, "action": "BUY", "price": order.filled_price_usd,
@@ -256,6 +258,7 @@ class TradeLab:
                             total_trades += 1
                             entry["trades"] += 1
                             fiat_traded = True
+                            self.tracker.record_trade(sym, "BUY", order.quantity, order.filled_price_usd, fiat_signal["reason"], True, fx_rate, order.fx_fee_cad)
                             logger.info(f"[FIAT SIGNAL] BUY {order.quantity:.4f} {sym} @ ${order.filled_price_usd:.4f}")
                             self.letta.remember_trade({
                                 "symbol": sym, "action": "BUY", "price": order.filled_price_usd,
@@ -284,6 +287,7 @@ class TradeLab:
                             if order and order.status == "filled":
                                 total_trades += 1
                                 entry["trades"] += 1
+                                self.tracker.record_trade(symbol, "BUY", order.quantity, order.filled_price_usd, f"FORCED FIAT | RSI:{rsi:.0f}", True, fx_rate, order.fx_fee_cad)
                                 logger.info(f"[FIAT FORCED] BUY {order.quantity:.4f} {symbol} @ ${order.filled_price_usd:.4f} | RSI:{rsi:.0f}")
                                 self.letta.remember_trade({
                                     "symbol": symbol, "action": "BUY", "price": order.filled_price_usd,
@@ -322,6 +326,7 @@ class TradeLab:
                     if order and order.status == "filled":
                         total_trades += 1
                         entry["trades"] += 1
+                        self.tracker.record_trade(symbol, "BUY", order.quantity, order.filled_price_usd, stock_signal["reason"], True, fx_rate, order.fx_fee_cad)
                         logger.info(f"[STOCK {stock_signal.get('mode', 'SIGNAL')}] BUY {order.quantity:.4f} {symbol} @ ${order.filled_price_usd:.2f} | {stock_signal['reason']}")
                         self.letta.remember_trade({
                             "symbol": symbol, "action": "BUY", "price": order.filled_price_usd,
@@ -338,15 +343,28 @@ class TradeLab:
             logger.error(f"Cycle error: {e}", exc_info=True)
 
     def push_logs_to_github(self):
+        """Push logs to GitHub using token authentication"""
         try:
             import subprocess
+            token = os.environ.get("GITHUB_TOKEN", "")
+            if not token:
+                logger.debug("No GITHUB_TOKEN set — skipping log push")
+                return
+            
+            repo_url = f"https://{token}@github.com/renzorocha1603-source/trade-lab.git"
             subprocess.run(["git","config","user.email","bot@tradelab.com"], capture_output=True, timeout=5)
             subprocess.run(["git","config","user.name","TradeLab Bot"], capture_output=True, timeout=5)
             subprocess.run(["git","add","logs/"], capture_output=True, timeout=10)
-            r = subprocess.run(["git","commit","-m","Auto-update logs [bot]"], capture_output=True, timeout=10)
-            if "nothing to commit" not in r.stdout.decode() and "nothing to commit" not in r.stderr.decode():
-                subprocess.run(["git","push"], capture_output=True, timeout=15)
-        except: pass
+            
+            result = subprocess.run(["git","diff","--cached","--quiet"], capture_output=True)
+            if result.returncode == 0:
+                return
+            
+            subprocess.run(["git","commit","-m","Auto-update logs [bot]"], capture_output=True, timeout=10)
+            subprocess.run(["git","push", repo_url, "main"], capture_output=True, timeout=15)
+            logger.debug("Logs pushed to GitHub")
+        except Exception as e:
+            logger.debug(f"Git push skipped: {e}")
 
     def start(self):
         print(BANNER)
