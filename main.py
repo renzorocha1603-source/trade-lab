@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
 """
-TRADE LAB v2.6 — Mathematical Trading Engine
-Stocks: Z-Score + Kelly + Sharpe | Crypto: Pennies Scalping
+TRADE LAB v2.8 — TRAINING MODE
+Stocks: Z-Score + Kelly + Sharpe (Ultra-aggressive)
+Crypto: Pennies Scalping 24/7 (DIP + MOMENTUM + BREAKOUT)
 DeepSeek (Math) + Claude (Psychology) + Letta (Brain + Memory)
-5 Scenarios · 4 Stocks + 1 Crypto · 24/7 Operation
+Maximum trade volume for AI education.
 """
 
 import os, sys, time, signal, logging
@@ -28,10 +29,9 @@ logger = logging.getLogger("TradeLab")
 
 BANNER = """
 ╔══════════════════════════════════════════════════════════════╗
-║         TRADE LAB v2.6 — MATHEMATICAL TRADING ENGINE       ║
-║   Stocks: Z-Score + Kelly + Sharpe                         ║
-║   Crypto: Pennies Scalping 24/7                            ║
-║   DeepSeek · Claude · Letta Brain                          ║
+║     TRADE LAB v2.8 — TRAINING MODE (Ultra-Aggressive)      ║
+║   Stocks: Z-Score + Kelly · Crypto: DIP/MOMENTUM/BREAKOUT  ║
+║   Letta Brain Learning From Every Trade                     ║
 ╚══════════════════════════════════════════════════════════════╝
 """
 
@@ -52,6 +52,7 @@ class TradeLab:
         self.last_news_scan = None
         self.last_tier3_scan = None
         self.running = True
+        self.training_mode = getattr(config.strategy, 'training_mode', True)
 
         self.sectors = {
             "tech": ["AAPL","MSFT","GOOGL","META","NVDA","TSLA","QQQ","XLK"],
@@ -60,14 +61,15 @@ class TradeLab:
             "healthcare": ["JNJ","XLV"],
             "canadian": ["RY.TO","TD.TO","SHOP.TO","XIU.TO","VFV.TO"],
             "broad_market": ["SPY","IWM","DIA","VTI"],
-            "crypto": ["BTC-USD","ETH-USD"],
+            "crypto": self.crypto_strategy.crypto_symbols,
             "international": ["BABA","TSM"],
             "consumer": ["WMT"],
         }
 
-        logger.info(f"TradeLab v2.6 | Stocks: Z-Score+Kelly | Crypto: Pennies | Letta Brain")
+        logger.info(f"TradeLab v2.8 TRAINING MODE | {'Ultra-Aggressive' if self.training_mode else 'Production'} | Crypto: {len(self.crypto_strategy.crypto_symbols)} symbols")
 
     def is_market_open(self) -> bool:
+        if self.training_mode: return True  # Always trade in training mode
         now = datetime.now()
         if now.weekday() >= 5: return False
         month, day = now.month, now.day
@@ -76,15 +78,17 @@ class TradeLab:
         return (now.hour > 13 or (now.hour == 13 and now.minute >= 30)) and (now.hour < 20)
 
     def is_crypto_symbol(self, symbol: str) -> bool:
-        return symbol in ["BTC-USD", "ETH-USD"]
+        return symbol in self.crypto_strategy.crypto_symbols
 
     def get_symbol_tier(self, symbol: str) -> int:
+        if self.is_crypto_symbol(symbol): return 1  # Always scan crypto
         if symbol in ["SPY","QQQ","AAPL","MSFT","NVDA"]: return 1
         if symbol in ["GOOGL","AMZN","META","TSLA","JPM","V","JNJ","IWM","DIA","XLF","XLK","XLE"]: return 2
         return 3
 
     def should_scan_symbol(self, symbol: str) -> bool:
-        if self.is_crypto_symbol(symbol): return True  # Always scan crypto
+        if self.is_crypto_symbol(symbol): return True
+        if self.training_mode: return True  # Scan everything in training
         tier = self.get_symbol_tier(symbol)
         now = datetime.now()
         if tier == 1: return True
@@ -140,11 +144,30 @@ class TradeLab:
         except: pass
         return context
 
+    def auto_reload_accounts(self):
+        """Auto-reload accounts that dropped below threshold"""
+        for scenario in self.scenario_runner.scenarios:
+            sid = scenario["id"]
+            if sid not in self.scenario_runner.results: continue
+            entry = self.scenario_runner.results[sid]
+            broker = entry["broker"]
+            equity = broker.get_equity_cad({})
+            threshold = self.config.risk.auto_reload_threshold
+            reload_amount = self.config.risk.auto_reload_amount
+            
+            if equity < threshold and broker.initial_capital_cad > 0:
+                broker.cash_cad = reload_amount
+                broker.initial_capital_cad = reload_amount
+                broker.positions = {}
+                broker.order_history = []
+                entry["trades"] = 0
+                logger.warning(f"🔄 AUTO-RELOAD: {scenario['name']} reset to ${reload_amount:,.0f} (was ${equity:,.2f})")
+
     def run_cycle(self):
         start = datetime.now()
         self.cycle_count += 1
         is_market = self.is_market_open()
-        mode = "MARKET HOURS" if is_market else "AFTER HOURS"
+        mode = "TRAINING" if self.training_mode else ("MARKET HOURS" if is_market else "AFTER HOURS")
 
         logger.info(f"{'='*70}")
         logger.info(f"CYCLE #{self.cycle_count} | {mode} | {start.strftime('%Y-%m-%d %H:%M:%S')}")
@@ -156,37 +179,51 @@ class TradeLab:
             if not prices: return
 
             self.letta.check_outcomes(prices)
+            self.auto_reload_accounts()
+            
             macro = self.get_macro_context()
             vix = macro.get("vix", 20)
             total_trades = 0
 
+            # ========== CRYPTO: Scan ALL crypto symbols ==========
+            for symbol in self.crypto_strategy.crypto_symbols:
+                crypto_signal = self.crypto_strategy.generate_signal(symbol)
+                if not crypto_signal: continue
+
+                for scenario in self.scenario_runner.scenarios:
+                    if scenario.get("type") != "crypto": continue
+                    sid = scenario["id"]
+                    if sid not in self.scenario_runner.results:
+                        self.scenario_runner._init_scenario(sid)
+                    entry = self.scenario_runner.results[sid]
+                    broker = entry["broker"]
+                    broker.set_fx_rate(fx_rate)
+
+                    qty = crypto_signal["quantity_pct"]
+                    current_price = crypto_signal["current_price"]
+                    
+                    # Add crypto price to prices dict for broker
+                    if symbol not in prices:
+                        prices[symbol] = current_price
+
+                    order = broker.place_market_order(symbol, "buy", qty, prices)
+                    if order and order.status == "filled":
+                        total_trades += 1
+                        entry["trades"] += 1
+                        logger.info(f"[PENNIES] BUY {order.quantity:.4f} {symbol} @ ${order.filled_price_usd:.2f} | {crypto_signal['reason']}")
+                        
+                        self.letta.remember_trade({
+                            "symbol": symbol, "action": "BUY",
+                            "price": order.filled_price_usd, "quantity_pct": qty,
+                            "rsi": crypto_signal["indicators"]["rsi"], "vix": vix,
+                            "reason": crypto_signal["reason"], "scenario_id": sid,
+                        })
+
+            # ========== STOCKS: Scan all stock symbols ==========
             for symbol in self.config.data.symbols:
+                if self.is_crypto_symbol(symbol): continue  # Already handled above
                 if not self.should_scan_symbol(symbol): continue
 
-                # ========== CRYPTO: Pennies Strategy ==========
-                if self.is_crypto_symbol(symbol):
-                    crypto_signal = self.crypto_strategy.generate_signal(symbol)
-                    if not crypto_signal: continue
-
-                    # Find crypto scenario
-                    for scenario in self.scenario_runner.scenarios:
-                        if scenario.get("type") != "crypto": continue
-                        sid = scenario["id"]
-                        if sid not in self.scenario_runner.results:
-                            self.scenario_runner._init_scenario(sid)
-                        entry = self.scenario_runner.results[sid]
-                        broker = entry["broker"]
-                        broker.set_fx_rate(fx_rate)
-
-                        qty = crypto_signal["quantity_pct"]
-                        order = broker.place_market_order(symbol, "buy", qty, prices)
-                        if order and order.status == "filled":
-                            total_trades += 1
-                            entry["trades"] += 1
-                            logger.info(f"[Pennies] BUY {order.quantity:.4f} {symbol} @ ${order.filled_price_usd:.2f} | {crypto_signal['reason']}")
-                    continue
-
-                # ========== STOCKS: Z-Score Strategy ==========
                 hist = self.data._price_cache.get(symbol)
                 if hist is None or len(hist) < 20: continue
 
@@ -195,14 +232,8 @@ class TradeLab:
 
                 rsi = self.calculate_rsi(hist.values)
 
-                # Get default profile for signal generation
                 base_signal = self.strategy.generate_signal(symbol, hist, 0)
                 if base_signal.action == SignalAction.HOLD: continue
-                
-                # After hours: only allow crypto buys, stock sells
-                if not is_market and base_signal.action == SignalAction.BUY:
-                    if not self.is_crypto_symbol(symbol):
-                        continue
 
                 if base_signal.metrics is None:
                     base_signal.metrics = {}
@@ -253,7 +284,6 @@ class TradeLab:
 
                 if final["action"] == "HOLD": continue
 
-                # Execute in stock scenarios
                 for scenario in self.scenario_runner.scenarios:
                     if scenario.get("type") == "crypto": continue
                     sid = scenario["id"]
@@ -336,24 +366,31 @@ class TradeLab:
 
     def start(self):
         print(BANNER)
-        logger.info(f"Stocks: Z-Score + Kelly + Sharpe | Crypto: Pennies Scalping 24/7")
-        logger.info(f"Symbols: {len(self.config.data.symbols)} | Scenarios: {len(self.scenario_runner.scenarios)}")
+        logger.info(f"TRAINING MODE: {'ON' if self.training_mode else 'OFF'}")
+        logger.info(f"Stocks: Z-Score + Kelly | Crypto: DIP/MOMENTUM/BREAKOUT")
+        logger.info(f"Symbols: {len(self.config.data.symbols)} stocks + {len(self.crypto_strategy.crypto_symbols)} crypto")
+        logger.info(f"Scenarios: {len(self.scenario_runner.scenarios)} | Auto-reload: ${self.config.risk.auto_reload_amount:,.0f} at ${self.config.risk.auto_reload_threshold:,.0f}")
         logger.info(f"Letta Memory: {len(self.letta.rules)} rules")
-        logger.info("24/7 Trading Loop starting...\n")
+        logger.info("24/7 Training Loop starting...\n")
         self.run_cycle()
 
         try:
             while self.running:
                 now = datetime.now()
-                if now.minute % 15 == 0: self.run_cycle()
+                if self.training_mode or self.is_market_open():
+                    if now.minute % 10 == 0:  # Every 10 minutes in training
+                        self.run_cycle()
                 else:
                     self.scan_news()
+                    if now.minute == 0: self.run_cycle()
                 time.sleep(60)
         except KeyboardInterrupt:
             self._shutdown()
 
     def _shutdown(self):
         logger.info("Shutting down...")
+        stats = self.letta.get_stats()
+        logger.info(f"Letta: {stats['total_rules']} rules | {stats['win_rate']}% win rate | {stats['total_trades']} trades")
         self.scenario_runner.print_comparison()
 
 
