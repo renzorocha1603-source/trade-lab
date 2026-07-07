@@ -183,6 +183,31 @@ with col2:
     st.caption(f"Updated: {datetime.now().strftime('%b %d, %I:%M %p')}")
 st.divider()
 
+# ==================== WHAT IS THIS? ====================
+with st.expander("🤔 What am I looking at? (Click to learn more)", expanded=False):
+    st.markdown("""
+    ### Welcome to your AI Intelligent Trader!
+    
+    **In plain English, here's what's happening:**
+    
+    - You have **5 virtual accounts** with play money across stocks, crypto, and forex
+    - An **AI brain** watches the market 24/7 and decides when to buy and sell
+    - Each trade is **explained in simple words** — click any trade to see why
+    - **Letta Memory** learns from every outcome — the AI gets smarter every day
+    - This is **practice money only** — the AI is in training mode
+    
+    **The 3 Asset Classes:**
+    - 📈 **Stocks** — US and Canadian companies, using Z-Score + Kelly mathematical models
+    - 🪙 **Crypto** — 16 cryptocurrencies, using VWAP + ATR + Bollinger Bands
+    - 💱 **Fiat** — 5 forex pairs, using the same Pennies strategy as crypto
+    
+    **Training Mode:** The bot trades every 10 minutes to maximize learning. Accounts auto-reload if they drop below $50. This is how the AI gets smart — by making thousands of trades and learning from every single one.
+    
+    **The Goal:** After months of training, Letta will know exactly what works and what doesn't — ready for real money.
+    """)
+
+st.divider()
+
 # ==================== SCENARIOS ====================
 latest_scenarios = {}
 for s in scenarios:
@@ -213,7 +238,7 @@ if stock_configs:
 # CRYPTO
 if crypto_configs:
     st.markdown('<p class="section-title">🪙 Crypto Account</p>', unsafe_allow_html=True)
-    st.markdown('<p class="section-subtitle">Pennies Strategy · 20 coins · 24/7 · DIP/MOMENTUM/BREAKOUT</p>', unsafe_allow_html=True)
+    st.markdown('<p class="section-subtitle">Pennies Strategy · 16 coins · 24/7 · DIP/MOMENTUM/BREAKOUT</p>', unsafe_allow_html=True)
     cols = st.columns(len(crypto_configs))
     for i, sc in enumerate(crypto_configs):
         sid = sc["id"]
@@ -224,7 +249,7 @@ if crypto_configs:
             pnl_s = equity - capital
             pnl_pct_s = safe_pct(pnl_s, capital)
             c = "green" if pnl_s >= 0 else "red"
-            st.markdown(f"""<div class="crypto-card"><b>{sc['name']}</b><br><h3 style="color:{c};margin:6px 0;">{fmt_money(equity)}</h3><small>{"↑" if pnl_s >= 0 else "↓"} {fmt_money(pnl_s)} ({pnl_pct_s:+.2f}%)</small><br><small>📊 {data.get('trades', 0)} trades | 🎯 Target: +1.5-3% | 🛑 Stop: ATR</small><br><small>🪙 Pennies · 20 coins · 24/7</small></div>""", unsafe_allow_html=True)
+            st.markdown(f"""<div class="crypto-card"><b>{sc['name']}</b><br><h3 style="color:{c};margin:6px 0;">{fmt_money(equity)}</h3><small>{"↑" if pnl_s >= 0 else "↓"} {fmt_money(pnl_s)} ({pnl_pct_s:+.2f}%)</small><br><small>📊 {data.get('trades', 0)} trades | 🎯 Target: +1.5-3% | 🛑 Stop: ATR</small><br><small>🪙 Pennies · 16 coins · 24/7</small></div>""", unsafe_allow_html=True)
 
 # FIAT
 if fiat_configs:
