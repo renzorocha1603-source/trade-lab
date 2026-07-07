@@ -3,10 +3,8 @@
 TRADE LAB v2.9 — FORCED TRAINING MODE (Phase 2 Complete)
 Stocks: Z-Score + Kelly + FORCED ENTRIES
 Crypto: DIP/MOMENTUM/BREAKOUT + FORCED ENTRIES
-Fiat: Pennies Scalping on 5 forex pairs
-If no natural signals trigger, force trades on best candidates.
-Letta learns from EVERY outcome — good AND bad.
-Phase 2 Complete: Stocks + Crypto + Fiat
+Fiat: Pennies Scalping + FORCED ENTRIES
+Letta learns from EVERY outcome.
 """
 
 import os, sys, time, signal, logging
@@ -53,8 +51,6 @@ class TradeLab:
         self.letta = LettaMemory(config)
         self.data.load_historical_data()
         self.cycle_count = 0
-        self.last_news_scan = None
-        self.last_tier3_scan = None
         self.running = True
         self.training_mode = True
 
@@ -71,10 +67,7 @@ class TradeLab:
             "consumer": ["WMT"],
         }
 
-        logger.info(f"TradeLab v2.9 Phase 2 | Stocks: {len(self.config.data.symbols)} | Crypto: {len(self.crypto_strategy.crypto_symbols)} | Fiat: {len(self.fiat_strategy.fiat_symbols)}")
-
-    def is_market_open(self) -> bool:
-        return True
+        logger.info(f"TradeLab v2.9 | Stocks: {len(self.config.data.symbols)} | Crypto: {len(self.crypto_strategy.crypto_symbols)} | Fiat: {len(self.fiat_strategy.fiat_symbols)}")
 
     def is_crypto_symbol(self, symbol: str) -> bool:
         return symbol in self.crypto_strategy.crypto_symbols
@@ -84,17 +77,6 @@ class TradeLab:
 
     def is_special_symbol(self, symbol: str) -> bool:
         return self.is_crypto_symbol(symbol) or self.is_fiat_symbol(symbol)
-
-    def should_scan_symbol(self, symbol: str) -> bool:
-        return True
-
-    def get_symbol_sector(self, symbol: str) -> str:
-        for sector, symbols in self.sectors.items():
-            if symbol in symbols: return sector
-        return "other"
-
-    def is_canadian_or_special(self, symbol: str) -> bool:
-        return ".TO" in symbol or self.is_special_symbol(symbol)
 
     def get_risk_profile(self, scenario_id: str) -> dict:
         for s in self.scenario_runner.scenarios:
@@ -148,16 +130,13 @@ class TradeLab:
                 logger.warning(f"AUTO-RELOAD: {scenario['name']} reset to ${self.config.risk.auto_reload_amount:,.0f}")
 
     def force_trade_crypto(self, prices, fx_rate):
-        """Force a crypto trade on the best candidate if no natural signals"""
         for symbol in self.crypto_strategy.crypto_symbols:
             signal = self.crypto_strategy.generate_signal(symbol)
-            if signal:
-                return signal
+            if signal: return signal
 
         best_symbol = None
         best_score = 999
         best_df = None
-
         for symbol in self.crypto_strategy.crypto_symbols:
             df = self.crypto_strategy.fetch_yahoo_crypto(symbol, "1h")
             if df is None or len(df) < 15: continue
@@ -171,7 +150,6 @@ class TradeLab:
             close_col = 'close' if 'close' in best_df.columns else 'Close'
             current_price = best_df[close_col].iloc[-1]
             atr = self.crypto_strategy.calculate_atr(best_df)
-
             return {
                 "symbol": best_symbol, "action": "BUY", "mode": "FORCED",
                 "current_price": current_price, "data_source": "Yahoo",
@@ -185,11 +163,9 @@ class TradeLab:
         return None
 
     def force_trade_stocks(self, prices, fx_rate):
-        """Force a stock trade on the best candidate"""
         best_symbol = None
         best_z = 999
         best_hist = None
-
         for symbol in self.config.data.symbols:
             if self.is_special_symbol(symbol): continue
             hist = self.data._price_cache.get(symbol)
@@ -228,7 +204,6 @@ class TradeLab:
 
             self.letta.check_outcomes(prices)
             self.auto_reload_accounts()
-
             macro = self.get_macro_context()
             vix = macro.get("vix", 20)
             total_trades = 0
@@ -254,39 +229,68 @@ class TradeLab:
                         entry["trades"] += 1
                         logger.info(f"[CRYPTO {crypto_signal.get('mode', 'SIGNAL')}] BUY {order.quantity:.4f} {symbol} @ ${order.filled_price_usd:.2f} | {crypto_signal['reason']}")
                         self.letta.remember_trade({
-                            "symbol": symbol, "action": "BUY",
-                            "price": order.filled_price_usd, "quantity_pct": qty,
-                            "rsi": crypto_signal.get("indicators", {}).get("rsi", 50), "vix": vix,
-                            "reason": crypto_signal["reason"], "scenario_id": sid,
+                            "symbol": symbol, "action": "BUY", "price": order.filled_price_usd,
+                            "quantity_pct": qty, "rsi": crypto_signal.get("indicators", {}).get("rsi", 50),
+                            "vix": vix, "reason": crypto_signal["reason"], "scenario_id": sid,
                         })
 
-            # ========== FIAT ==========
+            # ========== FIAT (Natural + Forced) ==========
+            fiat_traded = False
             for symbol in self.fiat_strategy.fiat_symbols:
                 fiat_signal = self.fiat_strategy.generate_signal(symbol)
-                if not fiat_signal: continue
-                for scenario in self.scenario_runner.scenarios:
-                    if scenario.get("type") != "fiat": continue
-                    sid = scenario["id"]
-                    if sid not in self.scenario_runner.results:
-                        self.scenario_runner._init_scenario(sid)
-                    entry = self.scenario_runner.results[sid]
-                    broker = entry["broker"]
-                    broker.set_fx_rate(fx_rate)
-                    symbol = fiat_signal["symbol"]
-                    qty = fiat_signal["quantity_pct"]
-                    current_price = fiat_signal["current_price"]
-                    if symbol not in prices: prices[symbol] = current_price
-                    order = broker.place_market_order(symbol, "buy", qty, prices)
-                    if order and order.status == "filled":
-                        total_trades += 1
-                        entry["trades"] += 1
-                        logger.info(f"[FIAT {fiat_signal.get('mode', 'SIGNAL')}] BUY {order.quantity:.4f} {symbol} @ ${order.filled_price_usd:.4f} | {fiat_signal['reason']}")
-                        self.letta.remember_trade({
-                            "symbol": symbol, "action": "BUY",
-                            "price": order.filled_price_usd, "quantity_pct": qty,
-                            "rsi": fiat_signal.get("indicators", {}).get("rsi", 50), "vix": vix,
-                            "reason": fiat_signal["reason"], "scenario_id": sid,
-                        })
+                if fiat_signal:
+                    for scenario in self.scenario_runner.scenarios:
+                        if scenario.get("type") != "fiat": continue
+                        sid = scenario["id"]
+                        if sid not in self.scenario_runner.results:
+                            self.scenario_runner._init_scenario(sid)
+                        entry = self.scenario_runner.results[sid]
+                        broker = entry["broker"]
+                        broker.set_fx_rate(fx_rate)
+                        sym = fiat_signal["symbol"]
+                        qty = fiat_signal["quantity_pct"]
+                        cp = fiat_signal["current_price"]
+                        if sym not in prices: prices[sym] = cp
+                        order = broker.place_market_order(sym, "buy", qty, prices)
+                        if order and order.status == "filled":
+                            total_trades += 1
+                            entry["trades"] += 1
+                            fiat_traded = True
+                            logger.info(f"[FIAT SIGNAL] BUY {order.quantity:.4f} {sym} @ ${order.filled_price_usd:.4f}")
+                            self.letta.remember_trade({
+                                "symbol": sym, "action": "BUY", "price": order.filled_price_usd,
+                                "quantity_pct": qty, "rsi": fiat_signal.get("indicators", {}).get("rsi", 50),
+                                "vix": vix, "reason": fiat_signal["reason"], "scenario_id": sid,
+                            })
+
+            if not fiat_traded:
+                for symbol in self.fiat_strategy.fiat_symbols:
+                    df = self.fiat_strategy.fetch_yahoo_forex(symbol)
+                    if df is None or len(df) < 15: continue
+                    close_col = 'close' if 'close' in df.columns else 'Close'
+                    cp = df[close_col].iloc[-1]
+                    rsi = self.fiat_strategy.calculate_rsi(df)
+                    if rsi < 50:
+                        for scenario in self.scenario_runner.scenarios:
+                            if scenario.get("type") != "fiat": continue
+                            sid = scenario["id"]
+                            if sid not in self.scenario_runner.results:
+                                self.scenario_runner._init_scenario(sid)
+                            entry = self.scenario_runner.results[sid]
+                            broker = entry["broker"]
+                            broker.set_fx_rate(fx_rate)
+                            if symbol not in prices: prices[symbol] = cp
+                            order = broker.place_market_order(symbol, "buy", 0.02, prices)
+                            if order and order.status == "filled":
+                                total_trades += 1
+                                entry["trades"] += 1
+                                logger.info(f"[FIAT FORCED] BUY {order.quantity:.4f} {symbol} @ ${order.filled_price_usd:.4f} | RSI:{rsi:.0f}")
+                                self.letta.remember_trade({
+                                    "symbol": symbol, "action": "BUY", "price": order.filled_price_usd,
+                                    "quantity_pct": 0.02, "rsi": rsi, "vix": vix,
+                                    "reason": f"FORCED FIAT | RSI:{rsi:.0f}", "scenario_id": sid,
+                                })
+                        break
 
             # ========== STOCKS ==========
             stock_signal = self.force_trade_stocks(prices, fx_rate)
@@ -320,10 +324,9 @@ class TradeLab:
                         entry["trades"] += 1
                         logger.info(f"[STOCK {stock_signal.get('mode', 'SIGNAL')}] BUY {order.quantity:.4f} {symbol} @ ${order.filled_price_usd:.2f} | {stock_signal['reason']}")
                         self.letta.remember_trade({
-                            "symbol": symbol, "action": "BUY",
-                            "price": order.filled_price_usd, "quantity_pct": qty,
-                            "rsi": stock_signal.get("rsi", 50), "vix": vix,
-                            "reason": stock_signal["reason"], "scenario_id": sid,
+                            "symbol": symbol, "action": "BUY", "price": order.filled_price_usd,
+                            "quantity_pct": qty, "rsi": stock_signal.get("rsi", 50),
+                            "vix": vix, "reason": stock_signal["reason"], "scenario_id": sid,
                         })
 
             duration = (datetime.now() - start).total_seconds()
@@ -333,9 +336,6 @@ class TradeLab:
 
         except Exception as e:
             logger.error(f"Cycle error: {e}", exc_info=True)
-
-    def scan_news(self):
-        pass
 
     def push_logs_to_github(self):
         try:

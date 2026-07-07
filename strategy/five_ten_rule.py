@@ -47,7 +47,7 @@ class FiveTenStrategy:
         self.vol_window = 20
         self.max_position_pct = getattr(config.strategy, 'max_position_pct', 0.25)
         self.min_volatility_filter = 0.60
-        self.z_lookback = getattr(config.strategy, 'z_score_lookback', 252)
+        self.z_lookback = 60  # Shorter for training mode
         self.sharpe_lookback = getattr(config.strategy, 'sharpe_lookback', 60)
 
     def calculate_return(self, price_series: pd.Series) -> Optional[float]:

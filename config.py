@@ -32,7 +32,7 @@ class StrategyConfig:
     sell_fraction: float = 0.10
     initial_position_pct: float = 0.10
     risk_profile: str = "balanced"
-    z_score_lookback: int = 252
+    z_score_lookback: int = 60
     sharpe_lookback: int = 60
     training_mode: bool = True
 
@@ -74,9 +74,9 @@ class DataConfig:
         "XIU.TO", "VFV.TO",
         "BABA", "TSM", "WMT", "XOM", "XLV",
         "BTC-USD", "ETH-USD", "SOL-USD", "XRP-USD", "DOGE-USD",
-        "ADA-USD", "AVAX-USD", "DOT-USD", "MATIC-USD", "LINK-USD",
-        "UNI-USD", "ATOM-USD", "XLM-USD", "FIL-USD", "NEAR-USD",
-        "ALGO-USD", "VET-USD", "ICP-USD", "GRT-USD", "FTM-USD",
+        "ADA-USD", "AVAX-USD", "DOT-USD", "LINK-USD",
+        "ATOM-USD", "XLM-USD", "FIL-USD", "NEAR-USD",
+        "ALGO-USD", "VET-USD", "ICP-USD",
         "EURUSD=X", "GBPUSD=X", "USDCAD=X", "USDJPY=X", "AUDUSD=X"
     ])
     benchmark: str = "SPY"
@@ -105,14 +105,13 @@ class CryptoConfig:
     eth_timeframe: str = "15m"
     crypto_symbols: List[str] = field(default_factory=lambda: [
         "BTC-USD", "ETH-USD", "SOL-USD", "XRP-USD", "DOGE-USD",
-        "ADA-USD", "AVAX-USD", "DOT-USD", "MATIC-USD", "LINK-USD",
-        "UNI-USD", "ATOM-USD", "XLM-USD", "FIL-USD", "NEAR-USD",
-        "ALGO-USD", "VET-USD", "ICP-USD", "GRT-USD", "FTM-USD"
+        "ADA-USD", "AVAX-USD", "DOT-USD", "LINK-USD",
+        "ATOM-USD", "XLM-USD", "FIL-USD", "NEAR-USD",
+        "ALGO-USD", "VET-USD", "ICP-USD"
     ])
 
 @dataclass
 class FiatConfig:
-    """Fiat/Forex-specific configuration"""
     atr_multiplier_target: float = 2.0
     atr_multiplier_stop: float = 0.8
     max_hold_hours: float = 2.0
