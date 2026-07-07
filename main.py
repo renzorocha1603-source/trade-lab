@@ -348,8 +348,10 @@ class TradeLab:
             import subprocess
             token = os.environ.get("GITHUB_TOKEN", "")
             if not token:
-                logger.debug("No GITHUB_TOKEN set — skipping log push")
+                logger.warning("No GITHUB_TOKEN set — skipping log push")
                 return
+            
+            logger.info(f"Attempting GitHub push with token (length: {len(token)})")
             
             repo_url = f"https://{token}@github.com/renzorocha1603-source/trade-lab.git"
             subprocess.run(["git","config","user.email","bot@tradelab.com"], capture_output=True, timeout=5)
@@ -358,13 +360,18 @@ class TradeLab:
             
             result = subprocess.run(["git","diff","--cached","--quiet"], capture_output=True)
             if result.returncode == 0:
+                logger.debug("No log changes to push")
                 return
             
             subprocess.run(["git","commit","-m","Auto-update logs [bot]"], capture_output=True, timeout=10)
-            subprocess.run(["git","push", repo_url, "main"], capture_output=True, timeout=15)
-            logger.debug("Logs pushed to GitHub")
+            push_result = subprocess.run(["git","push", repo_url, "main"], capture_output=True, timeout=15, text=True)
+            
+            if push_result.returncode == 0:
+                logger.info("Logs pushed to GitHub successfully")
+            else:
+                logger.error(f"Git push failed: {push_result.stderr[:200]}")
         except Exception as e:
-            logger.debug(f"Git push skipped: {e}")
+            logger.error(f"Git push error: {e}")
 
     def start(self):
         print(BANNER)
