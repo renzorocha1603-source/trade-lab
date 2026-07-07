@@ -1,9 +1,11 @@
 """
-Crypto Pennies Strategy — Small consistent wins compound into big returns.
+Crypto Pennies Strategy v2.0 — Dual Mode: Dip Buying + Momentum Riding
 24/7 trading with fee-aware math, VWAP Z-Score, Bollinger Bands, ATR stops.
 Includes market cap data from CoinGecko (free, no API key).
 Uses Yahoo Finance for price data when Binance is blocked.
-Trades top 20 cryptos by market cap for maximum opportunities.
+Trades top 20 cryptos by market cap.
+DIP MODE: Buy when price below VWAP (oversold)
+MOMENTUM MODE: Buy when price above VWAP with strong volume (breakout)
 """
 
 import logging
@@ -18,11 +20,11 @@ logger = logging.getLogger(__name__)
 
 class CryptoPenniesStrategy:
     """
-    Pennies Strategy for Crypto
-    Entry: VWAP Z-Score + Volume confirmation + Bollinger Band filter + Market Cap check
+    Pennies Strategy v2.0 — Dual Mode Crypto Trading
+    DIP MODE: VWAP-Z < -0.8 + volume + BB width + RSI not overbought
+    MOMENTUM MODE: VWAP-Z > 2.0 + strong volume + RSI not extreme
     Exit: ATR-based target + ATR-based stop + Time stop
     Sizing: Kelly Criterion × 0.3
-    Trades: Top 20 cryptos by market cap
     """
 
     def __init__(self, config):
@@ -40,7 +42,6 @@ class CryptoPenniesStrategy:
         self._market_cap_cache = {}
         self._market_cap_cache_time = None
 
-        # All tradable cryptos
         self.crypto_symbols = [
             "BTC-USD", "ETH-USD", "SOL-USD", "XRP-USD", "DOGE-USD",
             "ADA-USD", "AVAX-USD", "DOT-USD", "MATIC-USD", "LINK-USD",
@@ -48,7 +49,7 @@ class CryptoPenniesStrategy:
             "ALGO-USD", "VET-USD", "ICP-USD", "GRT-USD", "FTM-USD"
         ]
 
-        logger.info(f"Crypto Pennies Strategy | {len(self.crypto_symbols)} symbols | Target: {self.atr_target}× ATR | Stop: {self.atr_stop}× ATR | Max Hold: {self.max_hold}h | Fees: {self.fee_pct:.2%}")
+        logger.info(f"Crypto Pennies v2.0 | {len(self.crypto_symbols)} symbols | Dual Mode: Dip + Momentum | Target: {self.atr_target}× ATR | Stop: {self.atr_stop}× ATR | Max Hold: {self.max_hold}h | Fees: {self.fee_pct:.2%}")
 
     # ==================== DATA SOURCES ====================
 
@@ -262,12 +263,11 @@ class CryptoPenniesStrategy:
         rs = gains / losses
         return 100.0 - (100.0 / (1.0 + rs))
 
-    # ==================== SIGNAL GENERATION ====================
+    # ==================== SIGNAL GENERATION (DUAL MODE) ====================
 
     def generate_signal(self, symbol: str, price_history: pd.Series = None) -> Optional[dict]:
-        """Generate a trading signal for crypto"""
+        """Generate a trading signal — DIP MODE or MOMENTUM MODE"""
 
-        # Use shorter timeframe for high-volatility coins
         high_vol_coins = ["DOGE-USD", "SOL-USD", "AVAX-USD", "NEAR-USD", "GRT-USD", "FTM-USD"]
         if symbol in high_vol_coins:
             interval = "15m"
@@ -278,7 +278,6 @@ class CryptoPenniesStrategy:
         else:
             interval = "1h"
 
-        # Try Binance first, fallback to Yahoo Finance
         df = self.fetch_binance_klines(symbol, interval)
         data_source = "Binance"
 
@@ -293,86 +292,102 @@ class CryptoPenniesStrategy:
         close_col = 'close' if 'close' in df.columns else 'Close'
         current_price = df[close_col].iloc[-1]
 
-        # Calculate all indicators
         atr = self.calculate_atr(df)
         vwap_z = self.calculate_vwap_zscore(df)
         bb_width = self.calculate_bollinger_width(df)
         vol_ratio = self.calculate_volume_ratio(df)
         rsi = self.calculate_rsi(df)
 
-        # Market cap data
         self.fetch_coingecko_data(symbol)
         market_cap = self._market_cap_cache.get(symbol)
         cap_tier = self.get_market_cap_rank(symbol)
         volume_24h = self._market_cap_cache.get(f"{symbol}_volume")
         change_24h = self._market_cap_cache.get(f"{symbol}_change")
 
-        logger.info(f"Crypto {symbol} [{data_source}] | ${current_price:.2f} | VWAP-Z: {vwap_z:.2f} | ATR: {atr:.2%} | BBW: {bb_width:.3f} | Vol: {vol_ratio:.1f}x | RSI: {rsi:.0f} | Cap: {cap_tier}")
+        # ==================== MODE SELECTION ====================
 
-        # Entry conditions — aggressive for high-vol coins, standard for mega caps
-        if cap_tier in ["mega_cap", "large_cap"]:
-            vwap_threshold = -0.8
+        mode = None
+        target_pct = 0
+        stop_pct = 0
+
+        # DIP MODE: Price below VWAP, oversold, good volume
+        dip_conditions = (
+            vwap_z < -0.8 and
+            rsi < 65 and
+            bb_width > 0.02 and
+            vol_ratio > self.min_volume_mult and
+            cap_tier in ["mega_cap", "large_cap", "mid_cap", "small_cap"]
+        )
+
+        # MOMENTUM MODE: Price above VWAP, strong volume, breaking out
+        momentum_conditions = (
+            vwap_z > 1.5 and
+            vol_ratio > 2.0 and
+            rsi < 75 and
+            bb_width > 0.02 and
+            cap_tier in ["mega_cap", "large_cap", "mid_cap", "small_cap"]
+        )
+
+        if dip_conditions:
+            mode = "DIP"
+            target_pct = atr * self.atr_target
+            stop_pct = atr * self.atr_stop
+        elif momentum_conditions:
+            mode = "MOMENTUM"
+            target_pct = atr * 1.0  # Smaller target for momentum
+            stop_pct = atr * 0.5    # Tighter stop for momentum
         else:
-            vwap_threshold = -1.2  # Stricter for smaller caps
-
-        entry_conditions = {
-            "vwap_zscore_ok": vwap_z < vwap_threshold,
-            "volume_ok": vol_ratio > self.min_volume_mult,
-            "bollinger_ok": 0.02 < bb_width < 0.20,  # Wider range for volatile coins
-            "rsi_not_overbought": rsi < 70,
-            "market_cap_ok": cap_tier in ["mega_cap", "large_cap", "mid_cap", "small_cap"],
-        }
-
-        all_pass = all(entry_conditions.values())
-
-        if not all_pass:
-            failed = [k for k, v in entry_conditions.items() if not v]
-            logger.debug(f"Crypto {symbol}: Failed — {failed}")
+            failed_dip = [
+                f"VWAP-Z:{vwap_z:.2f}(<-0.8)" if vwap_z >= -0.8 else "",
+                f"RSI:{rsi:.0f}(<65)" if rsi >= 65 else "",
+                f"BBW:{bb_width:.3f}(>0.02)" if bb_width <= 0.02 else "",
+                f"Vol:{vol_ratio:.1f}x(>{self.min_volume_mult})" if vol_ratio <= self.min_volume_mult else "",
+            ]
+            failed_mom = [
+                f"VWAP-Z:{vwap_z:.2f}(>1.5)" if vwap_z <= 1.5 else "",
+                f"Vol:{vol_ratio:.1f}x(>2.0)" if vol_ratio <= 2.0 else "",
+                f"RSI:{rsi:.0f}(<75)" if rsi >= 75 else "",
+            ]
+            failed_dip = [f for f in failed_dip if f]
+            failed_mom = [f for f in failed_mom if f]
+            if failed_dip or failed_mom:
+                logger.debug(f"Crypto {symbol}: DIP({','.join(failed_dip[:2])}) | MOM({','.join(failed_mom[:2])})")
             return None
 
-        # Position size by market cap tier (safer for smaller caps)
+        # ==================== POSITION SIZING ====================
+
         cap_multiplier = {
-            "mega_cap": 1.0,
-            "large_cap": 0.9,
-            "mid_cap": 0.6,
-            "small_cap": 0.4,
-            "micro_cap": 0.2,
-            "unknown": 0.3
+            "mega_cap": 1.0, "large_cap": 0.9, "mid_cap": 0.6,
+            "small_cap": 0.4, "micro_cap": 0.2, "unknown": 0.3
         }
 
-        # Extra volatility adjustment
-        if atr > 0.05:  # >5% ATR = very volatile
+        if atr > 0.05:
             cap_multiplier[cap_tier] *= 0.7
 
-        # Calculate profit target and stop loss
-        target_pct = atr * self.atr_target
-        stop_pct = atr * self.atr_stop
-
-        # Fee-aware check
         net_target = target_pct - (self.fee_pct * 2)
         net_risk = stop_pct + (self.fee_pct * 2)
 
         if net_target < self.min_net_ev:
-            logger.debug(f"Crypto {symbol}: Net target {net_target:.3%} < min EV {self.min_net_ev:.3%}")
+            logger.debug(f"Crypto {symbol}: Net target {net_target:.3%} < min EV")
             return None
 
-        # Risk/reward
         risk_reward = net_target / net_risk if net_risk > 0 else 0
 
-        # Skip if risk/reward is terrible
-        if risk_reward < 0.8:
+        if risk_reward < 0.6:
             logger.debug(f"Crypto {symbol}: Poor R:R {risk_reward:.2f}")
             return None
 
-        # Kelly position sizing
         p_win = 0.55
         b_ratio = risk_reward
         kelly = (p_win * b_ratio - (1 - p_win)) / b_ratio if b_ratio > 0 else 0
         position_size = max(0.01, min(0.20, kelly * self.kelly_frac * cap_multiplier.get(cap_tier, 0.5)))
 
+        logger.info(f"Crypto {symbol} [{data_source}] | {mode} MODE | ${current_price:.2f} | VWAP-Z: {vwap_z:.2f} | ATR: {atr:.2%} | Vol: {vol_ratio:.1f}x | RSI: {rsi:.0f} | Size: {position_size:.1%} | Target: {target_pct:.2%} | Stop: {stop_pct:.2%}")
+
         return {
             "symbol": symbol,
             "action": "BUY",
+            "mode": mode,
             "current_price": current_price,
             "data_source": data_source,
             "quantity_pct": round(position_size, 4),
@@ -385,8 +400,6 @@ class CryptoPenniesStrategy:
             "max_hold_hours": self.max_hold,
             "market_cap": market_cap,
             "market_cap_tier": cap_tier,
-            "volume_24h": volume_24h,
-            "change_24h": change_24h,
             "indicators": {
                 "vwap_zscore": round(vwap_z, 3),
                 "atr": round(atr, 4),
@@ -394,7 +407,7 @@ class CryptoPenniesStrategy:
                 "vol_ratio": round(vol_ratio, 2),
                 "rsi": round(rsi, 1),
             },
-            "reason": f"VWAP-Z: {vwap_z:.2f} | ATR: {atr:.2%} | Vol: {vol_ratio:.1f}x | RSI: {rsi:.0f} | Cap: {cap_tier} [{data_source}]"
+            "reason": f"[{mode}] VWAP-Z: {vwap_z:.2f} | ATR: {atr:.2%} | Vol: {vol_ratio:.1f}x | RSI: {rsi:.0f} | {data_source}"
         }
 
     # ==================== EXIT CHECK ====================
@@ -423,12 +436,12 @@ class CryptoPenniesStrategy:
 
     def get_stats(self) -> dict:
         return {
-            "strategy": "Crypto Pennies Scalping",
+            "strategy": "Crypto Pennies v2.0 — Dual Mode",
             "symbols": len(self.crypto_symbols),
+            "modes": "DIP (VWAP-Z < -0.8) + MOMENTUM (VWAP-Z > 1.5, Vol > 2x)",
             "atr_target_multiplier": self.atr_target,
             "atr_stop_multiplier": self.atr_stop,
             "max_hold_hours": self.max_hold,
             "kelly_fraction": self.kelly_frac,
             "fee_pct": self.fee_pct,
-            "min_net_ev": self.min_net_ev,
         }
