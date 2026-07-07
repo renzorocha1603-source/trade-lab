@@ -790,5 +790,53 @@
     "fees_cad": 0.15,
     "reason": "DIP BUY | Z:-1.73 | Size:3.9% | RSI:39",
     "ai_modified": true
+  },
+  {
+    "timestamp": "2026-07-07T16:50:50.307763",
+    "symbol": "XLM-USD",
+    "action": "BUY",
+    "quantity": 0.0422,
+    "price_usd": 0.19,
+    "value_cad": 0.01,
+    "fx_rate": 1.42,
+    "fees_cad": 0.0,
+    "reason": "DIP BUY | Z:-1.61 | Size:4.2% | ATR:0.98%",
+    "ai_modified": true
+  },
+  {
+    "timestamp": "2026-07-07T16:50:52.213709",
+    "symbol": "XLK",
+    "action": "BUY",
+    "quantity": 0.0387,
+    "price_usd": 180.32,
+    "value_cad": 9.91,
+    "fx_rate": 1.42,
+    "fees_cad": 0.15,
+    "reason": "DIP BUY | Z:-1.72 | Size:3.9% | RSI:39",
+    "ai_modified": true
+  },
+  {
+    "timestamp": "2026-07-07T16:50:52.214714",
+    "symbol": "XLK",
+    "action": "BUY",
+    "quantity": 0.0387,
+    "price_usd": 180.32,
+    "value_cad": 9.91,
+    "fx_rate": 1.42,
+    "fees_cad": 0.15,
+    "reason": "DIP BUY | Z:-1.72 | Size:3.9% | RSI:39",
+    "ai_modified": true
+  },
+  {
+    "timestamp": "2026-07-07T16:50:52.215429",
+    "symbol": "XLK",
+    "action": "BUY",
+    "quantity": 0.0387,
+    "price_usd": 180.32,
+    "value_cad": 9.91,
+    "fx_rate": 1.42,
+    "fees_cad": 0.15,
+    "reason": "DIP BUY | Z:-1.72 | Size:3.9% | RSI:39",
+    "ai_modified": true
   }
 ]
