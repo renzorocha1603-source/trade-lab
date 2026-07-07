@@ -202,5 +202,65 @@
     "fees_cad": 0.08,
     "reason": "FORCED TRAINING | Z:-1.78 | RSI:39",
     "ai_modified": true
+  },
+  {
+    "timestamp": "2026-07-07T16:20:37.121958",
+    "symbol": "XLM-USD",
+    "action": "BUY",
+    "quantity": 0.03,
+    "price_usd": 0.19,
+    "value_cad": 0.01,
+    "fx_rate": 1.42,
+    "fees_cad": 0.0,
+    "reason": "FORCED TRAINING | Z:-1.79 | ATR:0.96%",
+    "ai_modified": true
+  },
+  {
+    "timestamp": "2026-07-07T16:20:39.125297",
+    "symbol": "EURUSD=X",
+    "action": "BUY",
+    "quantity": 0.02,
+    "price_usd": 1.14,
+    "value_cad": 0.03,
+    "fx_rate": 1.42,
+    "fees_cad": 0.0,
+    "reason": "FORCED FIAT | RSI:26",
+    "ai_modified": true
+  },
+  {
+    "timestamp": "2026-07-07T16:20:39.161668",
+    "symbol": "XLK",
+    "action": "BUY",
+    "quantity": 0.02,
+    "price_usd": 179.89,
+    "value_cad": 5.11,
+    "fx_rate": 1.42,
+    "fees_cad": 0.08,
+    "reason": "FORCED TRAINING | Z:-1.77 | RSI:39",
+    "ai_modified": true
+  },
+  {
+    "timestamp": "2026-07-07T16:20:39.162364",
+    "symbol": "XLK",
+    "action": "BUY",
+    "quantity": 0.02,
+    "price_usd": 179.89,
+    "value_cad": 5.11,
+    "fx_rate": 1.42,
+    "fees_cad": 0.08,
+    "reason": "FORCED TRAINING | Z:-1.77 | RSI:39",
+    "ai_modified": true
+  },
+  {
+    "timestamp": "2026-07-07T16:20:39.162730",
+    "symbol": "XLK",
+    "action": "BUY",
+    "quantity": 0.02,
+    "price_usd": 179.89,
+    "value_cad": 5.11,
+    "fx_rate": 1.42,
+    "fees_cad": 0.08,
+    "reason": "FORCED TRAINING | Z:-1.77 | RSI:39",
+    "ai_modified": true
   }
 ]
