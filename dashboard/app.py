@@ -1,7 +1,7 @@
 """
-AI Intelligent Trader Dashboard v2.9 — Training Mode
-Stocks · Crypto · Fiat · Letta Brain · Ask Letta Sidebar
-Complete uncut version — designed for anyone to understand.
+AI Intelligent Trader Dashboard v2.9 — Phase 2 Complete
+Stocks · Crypto · Fiat · Ask Letta · Training Mode
+Claude-polished UI — designed for anyone to understand.
 """
 
 import streamlit as st
@@ -22,8 +22,8 @@ st.markdown("""
     .explanation { font-size: 13px; color: #888; font-style: italic; }
     .card { background: rgba(127,127,127,0.06); border: 1px solid rgba(127,127,127,0.15); border-radius: 12px; padding: 16px 18px; margin-bottom: 14px; }
     .highlight-card { background: rgba(124,77,255,0.08); border: 1px solid rgba(124,77,255,0.25); border-radius: 12px; padding: 16px 18px; margin-bottom: 14px; }
-    .crypto-card { background: rgba(255,152,0,0.08); border: 1px solid rgba(255,152,0,0.25); border-radius: 12px; padding: 16px 18px; margin-bottom: 14px; }
-    .fiat-card { background: rgba(0,150,136,0.08); border: 1px solid rgba(0,150,136,0.25); border-radius: 12px; padding: 16px 18px; margin-bottom: 14px; }
+    .crypto-card { background: rgba(255,152,0,0.08); border: 1px solid rgba(255,152,0,0.25); border-radius: 12px; padding: 14px; text-align: center; margin-bottom: 8px; }
+    .fiat-card { background: rgba(0,150,136,0.08); border: 1px solid rgba(0,150,136,0.25); border-radius: 12px; padding: 14px; text-align: center; margin-bottom: 8px; }
     .status-pill-green { display: inline-block; padding: 4px 12px; border-radius: 999px; font-size: 13px; font-weight: 600; background: rgba(0,200,83,0.15); color: #00c853; }
     .disclaimer-box { background: rgba(255,193,7,0.08); border: 1px solid rgba(255,193,7,0.35); border-radius: 10px; padding: 10px 14px; font-size: 12.5px; color: #b58a00; margin-top: 6px; }
     .scenario-card { background: rgba(127,127,127,0.04); border: 1px solid rgba(127,127,127,0.1); border-radius: 12px; padding: 14px; text-align: center; margin-bottom: 8px; }
@@ -138,7 +138,8 @@ with st.sidebar:
         
         st.markdown(f"""<div class="letta-answer">
         <b>📊 {ask_symbol.upper()}</b><br>
-        • Trades: {total} checked / {len(relevant_trades)} total<br>
+        • Trades tracked: {len(relevant_trades)} total<br>
+        • Analyzed: {total} (need 24h to evaluate)<br>
         • Win rate: {win_rate}% ({wins}/{total})<br>
         • Rules learned: {len([r for r in learned_rules if ask_symbol.upper() in r.get('description', '').upper()])}
         </div>""", unsafe_allow_html=True)
@@ -168,7 +169,7 @@ with st.sidebar:
     
     st.divider()
     st.markdown("**⏰ Training Mode Active**")
-    st.write("• Trades every 10 minutes\n• 24/7 operation\n• Auto-reload at $50\n• Stocks + Crypto")
+    st.write("• Trades every 10 minutes\n• 24/7 operation\n• Auto-reload at $50\n• Stocks + Crypto + Fiat")
     st.divider()
     st.markdown('<div class="disclaimer-box">⚠️ Paper trading simulation. No real money. Not financial advice.</div>', unsafe_allow_html=True)
 
@@ -176,16 +177,13 @@ with st.sidebar:
 col1, col2 = st.columns([3, 1])
 with col1:
     st.title("🤖 AI Intelligent Trader")
-    st.caption("Training Mode — Letta learns from every trade. Forced entries 24/7.")
+    st.caption("Training Mode — Letta learns from every trade. Stocks · Crypto · Fiat.")
 with col2:
     st.markdown('<span class="status-pill-green">🟢 Live</span>', unsafe_allow_html=True)
     st.caption(f"Updated: {datetime.now().strftime('%b %d, %I:%M %p')}")
 st.divider()
 
-# ==================== STOCKS ====================
-st.markdown('<p class="section-title">📈 Stock Trading Accounts</p>', unsafe_allow_html=True)
-st.markdown('<p class="section-subtitle">Z-Score entries · Kelly sizing · Forced training mode</p>', unsafe_allow_html=True)
-
+# ==================== SCENARIOS ====================
 latest_scenarios = {}
 for s in scenarios:
     sid = s.get("scenario_id", "unknown")
@@ -194,8 +192,12 @@ for s in scenarios:
 
 stock_configs = [s for s in scenarios_config if s.get("type") == "stocks"]
 crypto_configs = [s for s in scenarios_config if s.get("type") == "crypto"]
+fiat_configs = [s for s in scenarios_config if s.get("type") == "fiat"]
 
+# STOCKS
 if stock_configs:
+    st.markdown('<p class="section-title">📈 Stock Accounts</p>', unsafe_allow_html=True)
+    st.markdown('<p class="section-subtitle">Z-Score entries · Kelly sizing · Forced training mode</p>', unsafe_allow_html=True)
     cols = st.columns(len(stock_configs))
     for i, sc in enumerate(stock_configs):
         sid = sc["id"]
@@ -208,13 +210,10 @@ if stock_configs:
             c = "green" if pnl_s >= 0 else "red"
             st.markdown(f"""<div class="scenario-card"><b>{sc['name']}</b><br><h3 style="color:{c};margin:6px 0;">{fmt_money(equity)}</h3><small>{"↑" if pnl_s >= 0 else "↓"} {fmt_money(pnl_s)} ({pnl_pct_s:+.2f}%)</small><br><small>📊 {data.get('trades', 0)} trades | 📦 {data.get('positions', 0)} holdings</small></div>""", unsafe_allow_html=True)
 
-st.divider()
-
-# ==================== CRYPTO ====================
-st.markdown('<p class="section-title">🪙 Crypto Trading Account</p>', unsafe_allow_html=True)
-st.markdown('<p class="section-subtitle">Pennies Strategy — VWAP Z-Score · ATR stops · 24/7 · 20 coins</p>', unsafe_allow_html=True)
-
+# CRYPTO
 if crypto_configs:
+    st.markdown('<p class="section-title">🪙 Crypto Account</p>', unsafe_allow_html=True)
+    st.markdown('<p class="section-subtitle">Pennies Strategy · 20 coins · 24/7 · DIP/MOMENTUM/BREAKOUT</p>', unsafe_allow_html=True)
     cols = st.columns(len(crypto_configs))
     for i, sc in enumerate(crypto_configs):
         sid = sc["id"]
@@ -227,6 +226,22 @@ if crypto_configs:
             c = "green" if pnl_s >= 0 else "red"
             st.markdown(f"""<div class="crypto-card"><b>{sc['name']}</b><br><h3 style="color:{c};margin:6px 0;">{fmt_money(equity)}</h3><small>{"↑" if pnl_s >= 0 else "↓"} {fmt_money(pnl_s)} ({pnl_pct_s:+.2f}%)</small><br><small>📊 {data.get('trades', 0)} trades | 🎯 Target: +1.5-3% | 🛑 Stop: ATR</small><br><small>🪙 Pennies · 20 coins · 24/7</small></div>""", unsafe_allow_html=True)
 
+# FIAT
+if fiat_configs:
+    st.markdown('<p class="section-title">💱 Fiat Account</p>', unsafe_allow_html=True)
+    st.markdown('<p class="section-subtitle">Pennies Strategy · 5 forex pairs · Tighter spreads · 24/7</p>', unsafe_allow_html=True)
+    cols = st.columns(len(fiat_configs))
+    for i, sc in enumerate(fiat_configs):
+        sid = sc["id"]
+        with cols[i]:
+            data = latest_scenarios.get(sid, {})
+            equity = data.get("equity_cad", sc.get("starting_capital_cad", 0))
+            capital = data.get("starting_capital", sc.get("starting_capital_cad", 0))
+            pnl_s = equity - capital
+            pnl_pct_s = safe_pct(pnl_s, capital)
+            c = "green" if pnl_s >= 0 else "red"
+            st.markdown(f"""<div class="fiat-card"><b>{sc['name']}</b><br><h3 style="color:{c};margin:6px 0;">{fmt_money(equity)}</h3><small>{"↑" if pnl_s >= 0 else "↓"} {fmt_money(pnl_s)} ({pnl_pct_s:+.2f}%)</small><br><small>📊 {data.get('trades', 0)} trades | 🎯 Target: ATR×2.0 | 🛑 Stop: ATR×0.8</small><br><small>💱 5 pairs · 24/7</small></div>""", unsafe_allow_html=True)
+
 st.divider()
 
 # ==================== RECENT TRADES ====================
@@ -238,9 +253,13 @@ if trades:
     if 'timestamp' in df_t.columns:
         df_t['timestamp'] = pd.to_datetime(df_t['timestamp'])
         df_t = df_t.sort_values('timestamp', ascending=False)
-        filt = st.radio("Show", ["All", "Stocks 📈", "Crypto 🪙"], horizontal=True, label_visibility="collapsed")
-        if "Stocks" in filt: df_t = df_t[~df_t['symbol'].str.contains('-USD', na=False)]
-        elif "Crypto" in filt: df_t = df_t[df_t['symbol'].str.contains('-USD', na=False)]
+        filt = st.radio("Show", ["All", "Stocks 📈", "Crypto 🪙", "Fiat 💱"], horizontal=True, label_visibility="collapsed")
+        if "Stocks" in filt: 
+            df_t = df_t[~df_t['symbol'].str.contains('-USD', na=False) & ~df_t['symbol'].str.contains('=X', na=False)]
+        elif "Crypto" in filt: 
+            df_t = df_t[df_t['symbol'].str.contains('-USD', na=False)]
+        elif "Fiat" in filt: 
+            df_t = df_t[df_t['symbol'].str.contains('=X', na=False)]
         for _, r in df_t.head(30).iterrows():
             action = r.get('action', '')
             symbol = r.get('symbol', '')
@@ -250,8 +269,9 @@ if trades:
             fees = r.get('fees_cad', 0)
             ts = r.get('timestamp', '')
             is_crypto = "-USD" in str(symbol)
+            is_fiat = "=X" in str(symbol)
             emoji = "🟢" if action == "BUY" else "🔴"
-            tag = " 🪙" if is_crypto else ""
+            tag = " 🪙" if is_crypto else " 💱" if is_fiat else ""
             with st.expander(f"{emoji} {action} {qty:.4f} {symbol} @ ${price:.2f}{tag}"):
                 st.write(f"**When:** {ts} ({time_ago(ts)})")
                 st.write(f"**Why:** {reason[:300] if reason else 'Forced training entry'}")
@@ -265,9 +285,9 @@ st.divider()
 # ==================== HOW IT WORKS ====================
 st.markdown('<p class="section-title">🧠 How Letta Learns</p>', unsafe_allow_html=True)
 c1, c2, c3 = st.columns(3)
-c1.markdown("""<div class="card"><b>📝 Step 1: Trade</b><br><br>Every 10 minutes, the bot enters positions on the best candidates — both stocks and crypto.<br><br><i>Forced training ensures maximum data.</i></div>""", unsafe_allow_html=True)
-c2.markdown("""<div class="card"><b>🔍 Step 2: Analyze</b><br><br>After 24 hours, Letta checks every trade outcome and extracts patterns from wins AND losses.<br><br><i>Thousands of data points.</i></div>""", unsafe_allow_html=True)
-c3.markdown("""<div class="card"><b>💡 Step 3: Learn</b><br><br>Letta creates rules: "When VIX > 30 and RSI < 35, buying tech stocks works 85% of the time."<br><br><i>Smarter every cycle.</i></div>""", unsafe_allow_html=True)
+c1.markdown("""<div class="card"><b>📝 Step 1: Trade</b><br><br>Every 10 minutes, the bot enters positions on stocks, crypto, and fiat — forced training ensures maximum data for learning.<br><br><i>Hundreds of trades per day.</i></div>""", unsafe_allow_html=True)
+c2.markdown("""<div class="card"><b>🔍 Step 2: Analyze</b><br><br>After 24 hours, Letta checks every trade outcome and extracts patterns from wins AND losses across all 3 asset classes.<br><br><i>Thousands of data points.</i></div>""", unsafe_allow_html=True)
+c3.markdown("""<div class="card"><b>💡 Step 3: Learn</b><br><br>Letta creates rules: "When VIX > 30 and RSI < 35, buying tech stocks works 85% of the time." These rules apply across ALL scenarios.<br><br><i>Smarter every single cycle.</i></div>""", unsafe_allow_html=True)
 
 st.divider()
 st.markdown("""
@@ -276,4 +296,4 @@ st.markdown("""
     <p style="color: #666; font-size: 12px;">© 2026 <b>OnlySolutions Inc.</b> — All rights reserved.</p>
 </div>
 """, unsafe_allow_html=True)
-st.caption(f"AI Intelligent Trader v2.9 · Training Mode · {len(trades)} trades · {len(active_rules) if 'active_rules' in dir() else 0} rules · Paper trading only")
+st.caption(f"AI Intelligent Trader v2.9 · Phase 2 Complete · {len(trades)} trades · {len(active_rules) if 'active_rules' in dir() else 0} rules · Paper trading only")
