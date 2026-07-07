@@ -69,13 +69,13 @@ class TradeLab:
         logger.info(f"TradeLab v2.9 FORCED TRAINING | Crypto: {len(self.crypto_strategy.crypto_symbols)} | Stocks: {len(self.config.data.symbols)}")
 
     def is_market_open(self) -> bool:
-        return True  # Always trade in training mode
+        return True
 
     def is_crypto_symbol(self, symbol: str) -> bool:
         return symbol in self.crypto_strategy.crypto_symbols
 
     def should_scan_symbol(self, symbol: str) -> bool:
-        return True  # Scan everything in forced training
+        return True
 
     def get_symbol_sector(self, symbol: str) -> str:
         for sector, symbols in self.sectors.items():
@@ -138,36 +138,40 @@ class TradeLab:
 
     def force_trade_crypto(self, prices, fx_rate):
         """Force a crypto trade on the best candidate if no natural signals"""
-        best_symbol = None
-        best_score = 999
-        
+        # First try natural signals
         for symbol in self.crypto_strategy.crypto_symbols:
             signal = self.crypto_strategy.generate_signal(symbol)
-            if signal: return signal  # Natural signal exists, use it
-            
-            # Track best candidate by VWAP Z-Score
+            if signal:
+                return signal
+
+        # No natural signals — force on best candidate
+        best_symbol = None
+        best_score = 999
+        best_df = None
+
+        for symbol in self.crypto_strategy.crypto_symbols:
             df = self.crypto_strategy.fetch_yahoo_crypto(symbol, "1h")
             if df is None or len(df) < 15: continue
             
-            close_col = 'close' if 'close' in df.columns else 'Close'
-            current_price = df[close_col].iloc[-1]
             vwap_z = self.crypto_strategy.calculate_vwap_zscore(df)
             
-            # We want the most negative Z-Score (biggest dip)
             if vwap_z < best_score:
                 best_score = vwap_z
                 best_symbol = symbol
-        
-        if best_symbol and best_score < 0:
-            # Force buy on the most dipped crypto
-            atr = self.crypto_strategy.calculate_atr(df)
+                best_df = df
+
+        if best_symbol and best_df is not None and best_score < 0:
+            close_col = 'close' if 'close' in best_df.columns else 'Close'
+            current_price = best_df[close_col].iloc[-1]
+            atr = self.crypto_strategy.calculate_atr(best_df)
+
             return {
                 "symbol": best_symbol,
                 "action": "BUY",
                 "mode": "FORCED",
                 "current_price": current_price,
                 "data_source": "Yahoo",
-                "quantity_pct": 0.03,  # Small forced position
+                "quantity_pct": 0.03,
                 "target_pct": atr * 1.0,
                 "stop_pct": atr * 0.8,
                 "net_target": atr * 1.0 - 0.006,
@@ -185,26 +189,27 @@ class TradeLab:
         """Force a stock trade on the best candidate"""
         best_symbol = None
         best_z = 999
-        
+        best_hist = None
+
         for symbol in self.config.data.symbols:
             if self.is_crypto_symbol(symbol): continue
             hist = self.data._price_cache.get(symbol)
             if hist is None or len(hist) < 20: continue
-            
+
             current_price = prices.get(symbol, 0)
             if current_price <= 0: continue
-            
+
             z_score = self.strategy.calculate_z_score(hist)
-            
+
             if z_score < best_z:
                 best_z = z_score
                 best_symbol = symbol
-        
-        if best_symbol and best_z < 0.5:  # Any stock that's not extremely overbought
-            hist = self.data._price_cache.get(best_symbol)
+                best_hist = hist
+
+        if best_symbol and best_hist is not None and best_z < 0.5:
             current_price = prices.get(best_symbol, 0)
-            rsi = self.calculate_rsi(hist.values)
-            
+            rsi = self.calculate_rsi(best_hist.values)
+
             return {
                 "symbol": best_symbol,
                 "action": "BUY",
@@ -232,14 +237,14 @@ class TradeLab:
 
             self.letta.check_outcomes(prices)
             self.auto_reload_accounts()
-            
+
             macro = self.get_macro_context()
             vix = macro.get("vix", 20)
             total_trades = 0
 
             # ========== CRYPTO: Natural + Forced ==========
             crypto_signal = self.force_trade_crypto(prices, fx_rate)
-            
+
             if crypto_signal:
                 for scenario in self.scenario_runner.scenarios:
                     if scenario.get("type") != "crypto": continue
@@ -253,7 +258,7 @@ class TradeLab:
                     symbol = crypto_signal["symbol"]
                     qty = crypto_signal["quantity_pct"]
                     current_price = crypto_signal["current_price"]
-                    
+
                     if symbol not in prices:
                         prices[symbol] = current_price
 
@@ -262,7 +267,7 @@ class TradeLab:
                         total_trades += 1
                         entry["trades"] += 1
                         logger.info(f"[CRYPTO {crypto_signal.get('mode', 'SIGNAL')}] BUY {order.quantity:.4f} {symbol} @ ${order.filled_price_usd:.2f} | {crypto_signal['reason']}")
-                        
+
                         self.letta.remember_trade({
                             "symbol": symbol, "action": "BUY",
                             "price": order.filled_price_usd, "quantity_pct": qty,
@@ -272,7 +277,7 @@ class TradeLab:
 
             # ========== STOCKS: Natural + Forced ==========
             stock_signal = self.force_trade_stocks(prices, fx_rate)
-            
+
             if stock_signal:
                 for scenario in self.scenario_runner.scenarios:
                     if scenario.get("type") == "crypto": continue
@@ -289,7 +294,7 @@ class TradeLab:
                     symbol = stock_signal["symbol"]
                     qty = stock_signal["quantity_pct"]
                     current_price = stock_signal["current_price"]
-                    
+
                     equity = broker.get_equity_cad(prices)
                     pos_count = len([p for p in broker.positions.values() if p.quantity > 0])
                     proposed_value = qty * current_price * fx_rate if fx_rate > 0 else 0
@@ -309,7 +314,7 @@ class TradeLab:
                         total_trades += 1
                         entry["trades"] += 1
                         logger.info(f"[STOCK {stock_signal.get('mode', 'SIGNAL')}] BUY {order.quantity:.4f} {symbol} @ ${order.filled_price_usd:.2f} | {stock_signal['reason']}")
-                        
+
                         self.letta.remember_trade({
                             "symbol": symbol, "action": "BUY",
                             "price": order.filled_price_usd, "quantity_pct": qty,
@@ -326,7 +331,7 @@ class TradeLab:
             logger.error(f"Cycle error: {e}", exc_info=True)
 
     def scan_news(self):
-        pass  # Not needed in forced training
+        pass
 
     def push_logs_to_github(self):
         try:
