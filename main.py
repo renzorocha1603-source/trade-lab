@@ -5,7 +5,7 @@ Stocks: Z-Score + Kelly + FORCED ENTRIES
 Crypto: DIP/MOMENTUM/BREAKOUT + FORCED ENTRIES
 Fiat: Pennies Scalping + FORCED ENTRIES
 Letta learns from EVERY outcome.
-GitHub token authentication for log pushing.
+GitHub API authentication for log pushing (no git needed).
 """
 
 import os, sys, time, signal, logging
@@ -236,7 +236,7 @@ class TradeLab:
                             "vix": vix, "reason": crypto_signal["reason"], "scenario_id": sid,
                         })
 
-            # ========== FIAT (Natural + Forced) ==========
+            # ========== FIAT ==========
             fiat_traded = False
             for symbol in self.fiat_strategy.fiat_symbols:
                 fiat_signal = self.fiat_strategy.generate_signal(symbol)
@@ -343,11 +343,11 @@ class TradeLab:
             logger.error(f"Cycle error: {e}", exc_info=True)
 
     def push_logs_to_github(self):
-        """Push logs to GitHub using token authentication"""
+        """Push logs to GitHub using GitHub API (no git needed)"""
         try:
-            import subprocess
+            import requests
+            import base64
             
-            # Try multiple ways to read the token
             token = (
                 os.environ.get("GITHUB_TOKEN") or 
                 os.environ.get("github_token") or
@@ -355,33 +355,58 @@ class TradeLab:
                 ""
             ).strip()
             
-            logger.info(f"Token check: GITHUB_TOKEN={'SET' if os.environ.get('GITHUB_TOKEN') else 'NOT SET'}, github_token={'SET' if os.environ.get('github_token') else 'NOT SET'}, GH_TOKEN={'SET' if os.environ.get('GH_TOKEN') else 'NOT SET'}")
-            
             if not token:
-                logger.warning("No GitHub token found in any environment variable — skipping log push")
+                logger.warning("No GitHub token — skipping log push")
                 return
             
-            logger.info(f"Attempting GitHub push with token length: {len(token)}")
+            owner = "renzorocha1603-source"
+            repo = "trade-lab"
+            headers = {
+                "Authorization": f"Bearer {token}",
+                "Accept": "application/vnd.github.v3+json"
+            }
             
-            repo_url = f"https://{token}@github.com/renzorocha1603-source/trade-lab.git"
-            subprocess.run(["git","config","user.email","bot@tradelab.com"], capture_output=True, timeout=5)
-            subprocess.run(["git","config","user.name","TradeLab Bot"], capture_output=True, timeout=5)
-            subprocess.run(["git","add","logs/"], capture_output=True, timeout=10)
+            log_files = [
+                "logs/trades.json", 
+                "logs/scenario_snapshots.json", 
+                "logs/learned_rules.json", 
+                "logs/accuracy_log.json",
+                "logs/portfolio_snapshots.json"
+            ]
             
-            result = subprocess.run(["git","diff","--cached","--quiet"], capture_output=True)
-            if result.returncode == 0:
-                logger.debug("No log changes to push")
-                return
+            for filepath in log_files:
+                if not os.path.exists(filepath):
+                    continue
+                
+                with open(filepath, "r") as f:
+                    content = f.read()
+                
+                if not content.strip():
+                    continue
+                
+                url = f"https://api.github.com/repos/{owner}/{repo}/contents/{filepath}"
+                resp = requests.get(url, headers=headers)
+                sha = resp.json().get("sha") if resp.status_code == 200 else None
+                
+                data = {
+                    "message": f"Auto-update {filepath} [bot]",
+                    "content": base64.b64encode(content.encode()).decode(),
+                    "branch": "main"
+                }
+                if sha:
+                    data["sha"] = sha
+                
+                put_resp = requests.put(url, headers=headers, json=data)
+                
+                if put_resp.status_code in [200, 201]:
+                    logger.debug(f"✅ Pushed {filepath}")
+                else:
+                    logger.warning(f"❌ Failed {filepath}: {put_resp.status_code}")
             
-            subprocess.run(["git","commit","-m","Auto-update logs [bot]"], capture_output=True, timeout=10)
-            push_result = subprocess.run(["git","push", repo_url, "main"], capture_output=True, timeout=15, text=True)
+            logger.info("✅ Logs pushed to GitHub via API")
             
-            if push_result.returncode == 0:
-                logger.info("✅ Logs pushed to GitHub successfully")
-            else:
-                logger.error(f"❌ Git push failed: {push_result.stderr[:300]}")
         except Exception as e:
-            logger.error(f"Git push error: {e}")
+            logger.error(f"GitHub API error: {e}")
 
     def start(self):
         print(BANNER)
