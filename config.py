@@ -36,20 +36,23 @@ class StrategyConfig:
     risk_profile: str = "balanced"
     z_score_lookback: int = 252
     sharpe_lookback: int = 60
+    training_mode: bool = True
 
 @dataclass
 class RiskConfig:
     max_position_size_cad: float = 10000
-    max_portfolio_drawdown: float = 0.20
-    max_daily_loss_cad: float = 5000
-    max_positions: int = 10
+    max_portfolio_drawdown: float = 0.95
+    max_daily_loss_cad: float = 50000
+    max_positions: int = 20
     emergency_stop_file: str = "EMERGENCY_STOP"
     require_market_open: bool = False
+    auto_reload_threshold: float = 50.0
+    auto_reload_amount: float = 5000.0
 
 @dataclass
 class ScheduleConfig:
     run_time: str = "16:30"
-    run_days: List[str] = field(default_factory=lambda: ["monday","tuesday","wednesday","thursday","friday"])
+    run_days: List[str] = field(default_factory=lambda: ["monday","tuesday","wednesday","thursday","friday","saturday","sunday"])
 
 @dataclass
 class BrokerConfig:
@@ -81,7 +84,6 @@ class DataConfig:
 
 @dataclass
 class NewsConfig:
-    """Multi-source news configuration"""
     finnhub_api_key: str = field(default_factory=lambda: os.getenv("FINNHUB_API_KEY", ""))
     alpha_vantage_api_key: str = field(default_factory=lambda: os.getenv("ALPHA_VANTAGE_API_KEY", ""))
     max_news_age_minutes: int = 30
@@ -90,7 +92,6 @@ class NewsConfig:
 
 @dataclass
 class CryptoConfig:
-    """Crypto-specific configuration"""
     binance_api_key: str = ""
     binance_api_secret: str = ""
     use_binance_public: bool = True
@@ -112,56 +113,57 @@ class CryptoConfig:
 
 @dataclass
 class RiskProfileConfig:
+    """TRAINING MODE — Ultra-aggressive for maximum learning"""
     conservative: dict = field(default_factory=lambda: {
-        "name": "Conservative",
-        "z_score_threshold": -2.0,
-        "kelly_fraction": 0.25,
-        "ev_minimum": 0.005,
-        "sharpe_minimum": 0.8,
+        "name": "Conservative Training",
+        "z_score_threshold": -0.8,
+        "kelly_fraction": 0.75,
+        "ev_minimum": 0.0,
+        "sharpe_minimum": 0.0,
         "use_rsi_filter": True,
         "rsi_threshold_modifier": 5,
-        "use_atr_filter": True,
-        "use_sector_limits": True,
-        "max_sector_positions": 2,
-        "cash_reserve_pct": 0.20,
-        "max_positions": 3,
-        "can_trade_us": False,
-        "min_notional": 5.0,
+        "use_atr_filter": False,
+        "use_sector_limits": False,
+        "max_sector_positions": 99,
+        "cash_reserve_pct": 0.03,
+        "max_positions": 10,
+        "can_trade_us": True,
+        "min_notional": 0.50,
     })
     balanced: dict = field(default_factory=lambda: {
-        "name": "Balanced",
-        "z_score_threshold": -1.2,
-        "kelly_fraction": 0.60,
-        "ev_minimum": 0.001,
-        "sharpe_minimum": 0.3,
-        "use_rsi_filter": True,
-        "rsi_threshold_modifier": -3,
-        "use_atr_filter": False,
-        "use_sector_limits": True,
-        "max_sector_positions": 4,
-        "cash_reserve_pct": 0.08,
-        "max_positions": 8,
-        "can_trade_us": True,
-        "min_notional": 1.0,
-    })
-    aggressive: dict = field(default_factory=lambda: {
-        "name": "Aggressive",
-        "z_score_threshold": -0.8,
+        "name": "Balanced Training",
+        "z_score_threshold": -0.5,
         "kelly_fraction": 1.0,
-        "ev_minimum": -0.002,
-        "sharpe_minimum": -0.2,
-        "use_rsi_filter": False,
-        "rsi_threshold_modifier": -15,
+        "ev_minimum": -0.001,
+        "sharpe_minimum": 0.0,
+        "use_rsi_filter": True,
+        "rsi_threshold_modifier": 0,
         "use_atr_filter": False,
         "use_sector_limits": False,
         "max_sector_positions": 99,
         "cash_reserve_pct": 0.02,
         "max_positions": 15,
         "can_trade_us": True,
-        "min_notional": 0.50,
+        "min_notional": 0.25,
+    })
+    aggressive: dict = field(default_factory=lambda: {
+        "name": "Aggressive Training",
+        "z_score_threshold": -0.3,
+        "kelly_fraction": 1.5,
+        "ev_minimum": -0.005,
+        "sharpe_minimum": -0.5,
+        "use_rsi_filter": False,
+        "rsi_threshold_modifier": -20,
+        "use_atr_filter": False,
+        "use_sector_limits": False,
+        "max_sector_positions": 99,
+        "cash_reserve_pct": 0.01,
+        "max_positions": 20,
+        "can_trade_us": True,
+        "min_notional": 0.10,
     })
     pennies: dict = field(default_factory=lambda: {
-        "name": "Pennies",
+        "name": "Pennies Training",
         "z_score_threshold": -1.5,
         "kelly_fraction": 0.30,
         "ev_minimum": 0.005,
