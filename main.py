@@ -346,12 +346,22 @@ class TradeLab:
         """Push logs to GitHub using token authentication"""
         try:
             import subprocess
-            token = os.environ.get("GITHUB_TOKEN", "")
+            
+            # Try multiple ways to read the token
+            token = (
+                os.environ.get("GITHUB_TOKEN") or 
+                os.environ.get("github_token") or
+                os.environ.get("GH_TOKEN") or
+                ""
+            ).strip()
+            
+            logger.info(f"Token check: GITHUB_TOKEN={'SET' if os.environ.get('GITHUB_TOKEN') else 'NOT SET'}, github_token={'SET' if os.environ.get('github_token') else 'NOT SET'}, GH_TOKEN={'SET' if os.environ.get('GH_TOKEN') else 'NOT SET'}")
+            
             if not token:
-                logger.warning("No GITHUB_TOKEN set — skipping log push")
+                logger.warning("No GitHub token found in any environment variable — skipping log push")
                 return
             
-            logger.info(f"Attempting GitHub push with token (length: {len(token)})")
+            logger.info(f"Attempting GitHub push with token length: {len(token)}")
             
             repo_url = f"https://{token}@github.com/renzorocha1603-source/trade-lab.git"
             subprocess.run(["git","config","user.email","bot@tradelab.com"], capture_output=True, timeout=5)
@@ -367,9 +377,9 @@ class TradeLab:
             push_result = subprocess.run(["git","push", repo_url, "main"], capture_output=True, timeout=15, text=True)
             
             if push_result.returncode == 0:
-                logger.info("Logs pushed to GitHub successfully")
+                logger.info("✅ Logs pushed to GitHub successfully")
             else:
-                logger.error(f"Git push failed: {push_result.stderr[:200]}")
+                logger.error(f"❌ Git push failed: {push_result.stderr[:300]}")
         except Exception as e:
             logger.error(f"Git push error: {e}")
 
