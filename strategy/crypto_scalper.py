@@ -304,7 +304,7 @@ class CryptoPenniesStrategy:
 
         # Entry conditions
         entry_conditions = {
-            "vwap_zscore_ok": vwap_z < -1.5,
+            "vwap_zscore_ok": vwap_z < -0.8,
             "volume_ok": vol_ratio > self.min_volume_mult,
             "bollinger_ok": 0.02 < bb_width < 0.15,
             "rsi_not_overbought": rsi < 65,
