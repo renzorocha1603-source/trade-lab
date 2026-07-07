@@ -982,5 +982,53 @@
     "fees_cad": 0.15,
     "reason": "DIP BUY | Z:-1.75 | Size:3.9% | RSI:39",
     "ai_modified": true
+  },
+  {
+    "timestamp": "2026-07-07T17:02:54.310990",
+    "symbol": "VET-USD",
+    "action": "BUY",
+    "quantity": 0.0447,
+    "price_usd": 0.0,
+    "value_cad": 0.0,
+    "fx_rate": 1.42,
+    "fees_cad": 0.0,
+    "reason": "DIP BUY | Z:-1.74 | Size:4.5% | ATR:0.83%",
+    "ai_modified": true
+  },
+  {
+    "timestamp": "2026-07-07T17:02:56.106789",
+    "symbol": "TSM",
+    "action": "BUY",
+    "quantity": 0.039,
+    "price_usd": 436.22,
+    "value_cad": 24.16,
+    "fx_rate": 1.42,
+    "fees_cad": 0.36,
+    "reason": "DIP BUY | Z:-1.74 | Size:3.9% | RSI:49",
+    "ai_modified": true
+  },
+  {
+    "timestamp": "2026-07-07T17:02:56.108227",
+    "symbol": "TSM",
+    "action": "BUY",
+    "quantity": 0.039,
+    "price_usd": 436.22,
+    "value_cad": 24.16,
+    "fx_rate": 1.42,
+    "fees_cad": 0.36,
+    "reason": "DIP BUY | Z:-1.74 | Size:3.9% | RSI:49",
+    "ai_modified": true
+  },
+  {
+    "timestamp": "2026-07-07T17:02:56.109555",
+    "symbol": "TSM",
+    "action": "BUY",
+    "quantity": 0.039,
+    "price_usd": 436.22,
+    "value_cad": 24.16,
+    "fx_rate": 1.42,
+    "fees_cad": 0.36,
+    "reason": "DIP BUY | Z:-1.74 | Size:3.9% | RSI:49",
+    "ai_modified": true
   }
 ]
