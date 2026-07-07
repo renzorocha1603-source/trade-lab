@@ -7,7 +7,6 @@ load_dotenv()
 
 @dataclass
 class DeepSeekConfig:
-    """DeepSeek - Primary AI for all daily analysis"""
     api_key: str = field(default_factory=lambda: os.getenv("DEEPSEEK_API_KEY", ""))
     model: str = "deepseek-chat"
     temperature: float = 0.3
@@ -18,7 +17,6 @@ class DeepSeekConfig:
 
 @dataclass
 class ClaudeConfig:
-    """Claude Haiku - Premium backup for extreme events only"""
     api_key: str = field(default_factory=lambda: os.getenv("CLAUDE_API_KEY", ""))
     model_name: str = "claude-haiku-3-5-20241022"
     temperature: float = 0.3
@@ -78,7 +76,8 @@ class DataConfig:
         "BTC-USD", "ETH-USD", "SOL-USD", "XRP-USD", "DOGE-USD",
         "ADA-USD", "AVAX-USD", "DOT-USD", "MATIC-USD", "LINK-USD",
         "UNI-USD", "ATOM-USD", "XLM-USD", "FIL-USD", "NEAR-USD",
-        "ALGO-USD", "VET-USD", "ICP-USD", "GRT-USD", "FTM-USD"
+        "ALGO-USD", "VET-USD", "ICP-USD", "GRT-USD", "FTM-USD",
+        "EURUSD=X", "GBPUSD=X", "USDCAD=X", "USDJPY=X", "AUDUSD=X"
     ])
     benchmark: str = "SPY"
 
@@ -112,71 +111,48 @@ class CryptoConfig:
     ])
 
 @dataclass
+class FiatConfig:
+    """Fiat/Forex-specific configuration"""
+    atr_multiplier_target: float = 2.0
+    atr_multiplier_stop: float = 0.8
+    max_hold_hours: float = 2.0
+    kelly_fraction: float = 0.6
+    min_volume_multiplier: float = 1.3
+    fee_pct: float = 0.0001
+    min_net_ev: float = 0.002
+    fiat_symbols: List[str] = field(default_factory=lambda: [
+        "EURUSD=X", "GBPUSD=X", "USDCAD=X", "USDJPY=X", "AUDUSD=X"
+    ])
+
+@dataclass
 class RiskProfileConfig:
-    """TRAINING MODE — Ultra-aggressive for maximum learning"""
     conservative: dict = field(default_factory=lambda: {
         "name": "Conservative Training",
-        "z_score_threshold": -0.8,
-        "kelly_fraction": 0.75,
-        "ev_minimum": 0.0,
-        "sharpe_minimum": 0.0,
-        "use_rsi_filter": True,
-        "rsi_threshold_modifier": 5,
-        "use_atr_filter": False,
-        "use_sector_limits": False,
-        "max_sector_positions": 99,
-        "cash_reserve_pct": 0.03,
-        "max_positions": 10,
-        "can_trade_us": True,
-        "min_notional": 0.50,
+        "z_score_threshold": -0.8, "kelly_fraction": 0.75, "ev_minimum": 0.0, "sharpe_minimum": 0.0,
+        "use_rsi_filter": True, "rsi_threshold_modifier": 5, "use_atr_filter": False,
+        "use_sector_limits": False, "max_sector_positions": 99,
+        "cash_reserve_pct": 0.03, "max_positions": 10, "can_trade_us": True, "min_notional": 0.50,
     })
     balanced: dict = field(default_factory=lambda: {
         "name": "Balanced Training",
-        "z_score_threshold": -0.5,
-        "kelly_fraction": 1.0,
-        "ev_minimum": -0.001,
-        "sharpe_minimum": 0.0,
-        "use_rsi_filter": True,
-        "rsi_threshold_modifier": 0,
-        "use_atr_filter": False,
-        "use_sector_limits": False,
-        "max_sector_positions": 99,
-        "cash_reserve_pct": 0.02,
-        "max_positions": 15,
-        "can_trade_us": True,
-        "min_notional": 0.25,
+        "z_score_threshold": -0.5, "kelly_fraction": 1.0, "ev_minimum": -0.001, "sharpe_minimum": 0.0,
+        "use_rsi_filter": True, "rsi_threshold_modifier": 0, "use_atr_filter": False,
+        "use_sector_limits": False, "max_sector_positions": 99,
+        "cash_reserve_pct": 0.02, "max_positions": 15, "can_trade_us": True, "min_notional": 0.25,
     })
     aggressive: dict = field(default_factory=lambda: {
         "name": "Aggressive Training",
-        "z_score_threshold": -0.3,
-        "kelly_fraction": 1.5,
-        "ev_minimum": -0.005,
-        "sharpe_minimum": -0.5,
-        "use_rsi_filter": False,
-        "rsi_threshold_modifier": -20,
-        "use_atr_filter": False,
-        "use_sector_limits": False,
-        "max_sector_positions": 99,
-        "cash_reserve_pct": 0.01,
-        "max_positions": 20,
-        "can_trade_us": True,
-        "min_notional": 0.10,
+        "z_score_threshold": -0.3, "kelly_fraction": 1.5, "ev_minimum": -0.005, "sharpe_minimum": -0.5,
+        "use_rsi_filter": False, "rsi_threshold_modifier": -20, "use_atr_filter": False,
+        "use_sector_limits": False, "max_sector_positions": 99,
+        "cash_reserve_pct": 0.01, "max_positions": 20, "can_trade_us": True, "min_notional": 0.10,
     })
     pennies: dict = field(default_factory=lambda: {
         "name": "Pennies Training",
-        "z_score_threshold": -1.5,
-        "kelly_fraction": 0.30,
-        "ev_minimum": 0.005,
-        "sharpe_minimum": 0.3,
-        "use_rsi_filter": False,
-        "rsi_threshold_modifier": 0,
-        "use_atr_filter": True,
-        "use_sector_limits": False,
-        "max_sector_positions": 99,
-        "cash_reserve_pct": 0.05,
-        "max_positions": 5,
-        "can_trade_us": True,
-        "min_notional": 1.0,
+        "z_score_threshold": -1.5, "kelly_fraction": 0.30, "ev_minimum": 0.005, "sharpe_minimum": 0.3,
+        "use_rsi_filter": False, "rsi_threshold_modifier": 0, "use_atr_filter": True,
+        "use_sector_limits": False, "max_sector_positions": 99,
+        "cash_reserve_pct": 0.05, "max_positions": 5, "can_trade_us": True, "min_notional": 1.0,
     })
 
 @dataclass
@@ -187,6 +163,7 @@ class Config:
     risk: RiskConfig = field(default_factory=RiskConfig)
     risk_profile: RiskProfileConfig = field(default_factory=RiskProfileConfig)
     crypto: CryptoConfig = field(default_factory=CryptoConfig)
+    fiat: FiatConfig = field(default_factory=FiatConfig)
     schedule: ScheduleConfig = field(default_factory=ScheduleConfig)
     broker: BrokerConfig = field(default_factory=BrokerConfig)
     data: DataConfig = field(default_factory=DataConfig)

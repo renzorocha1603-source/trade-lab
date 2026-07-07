@@ -1,10 +1,12 @@
 #!/usr/bin/env python3
 """
-TRADE LAB v2.9 — FORCED TRAINING MODE
+TRADE LAB v2.9 — FORCED TRAINING MODE (Phase 2 Complete)
 Stocks: Z-Score + Kelly + FORCED ENTRIES
 Crypto: DIP/MOMENTUM/BREAKOUT + FORCED ENTRIES
+Fiat: Pennies Scalping on 5 forex pairs
 If no natural signals trigger, force trades on best candidates.
 Letta learns from EVERY outcome — good AND bad.
+Phase 2 Complete: Stocks + Crypto + Fiat
 """
 
 import os, sys, time, signal, logging
@@ -18,6 +20,7 @@ from strategy.five_ten_rule import FiveTenStrategy, SignalAction
 from strategy.deepseek_research import DeepSeekResearch
 from strategy.claude_psychology import ClaudePsychology
 from strategy.crypto_scalper import CryptoPenniesStrategy
+from strategy.fiat_scalper import FiatPenniesStrategy
 from risk.manager import RiskManager
 from portfolio.tracker import PortfolioTracker
 from simulator.runner import ScenarioRunner
@@ -29,8 +32,8 @@ logger = logging.getLogger("TradeLab")
 
 BANNER = """
 ╔══════════════════════════════════════════════════════════════╗
-║   TRADE LAB v2.9 — FORCED TRAINING MODE                    ║
-║   No perfect setup? Force trade on best candidate.         ║
+║   TRADE LAB v2.9 — FORCED TRAINING MODE (Phase 2 Complete) ║
+║   Stocks · Crypto · Fiat — 5 Scenarios                     ║
 ║   Letta learns from EVERY outcome.                         ║
 ╚══════════════════════════════════════════════════════════════╝
 """
@@ -41,6 +44,7 @@ class TradeLab:
         self.data = DataPipeline(config)
         self.strategy = FiveTenStrategy(config)
         self.crypto_strategy = CryptoPenniesStrategy(config)
+        self.fiat_strategy = FiatPenniesStrategy(config)
         self.deepseek = DeepSeekResearch(config) if config.use_ai else None
         self.claude = ClaudePsychology(config) if config.use_ai else None
         self.risk = RiskManager(config)
@@ -62,17 +66,24 @@ class TradeLab:
             "canadian": ["RY.TO","TD.TO","SHOP.TO","XIU.TO","VFV.TO"],
             "broad_market": ["SPY","IWM","DIA","VTI"],
             "crypto": self.crypto_strategy.crypto_symbols,
+            "fiat": self.fiat_strategy.fiat_symbols,
             "international": ["BABA","TSM"],
             "consumer": ["WMT"],
         }
 
-        logger.info(f"TradeLab v2.9 FORCED TRAINING | Crypto: {len(self.crypto_strategy.crypto_symbols)} | Stocks: {len(self.config.data.symbols)}")
+        logger.info(f"TradeLab v2.9 Phase 2 | Stocks: {len(self.config.data.symbols)} | Crypto: {len(self.crypto_strategy.crypto_symbols)} | Fiat: {len(self.fiat_strategy.fiat_symbols)}")
 
     def is_market_open(self) -> bool:
         return True
 
     def is_crypto_symbol(self, symbol: str) -> bool:
         return symbol in self.crypto_strategy.crypto_symbols
+
+    def is_fiat_symbol(self, symbol: str) -> bool:
+        return symbol in self.fiat_strategy.fiat_symbols
+
+    def is_special_symbol(self, symbol: str) -> bool:
+        return self.is_crypto_symbol(symbol) or self.is_fiat_symbol(symbol)
 
     def should_scan_symbol(self, symbol: str) -> bool:
         return True
@@ -82,8 +93,8 @@ class TradeLab:
             if symbol in symbols: return sector
         return "other"
 
-    def is_canadian_or_crypto(self, symbol: str) -> bool:
-        return ".TO" in symbol or self.is_crypto_symbol(symbol)
+    def is_canadian_or_special(self, symbol: str) -> bool:
+        return ".TO" in symbol or self.is_special_symbol(symbol)
 
     def get_risk_profile(self, scenario_id: str) -> dict:
         for s in self.scenario_runner.scenarios:
@@ -134,17 +145,15 @@ class TradeLab:
                 broker.positions = {}
                 broker.order_history = []
                 entry["trades"] = 0
-                logger.warning(f"🔄 AUTO-RELOAD: {scenario['name']} reset to ${self.config.risk.auto_reload_amount:,.0f}")
+                logger.warning(f"AUTO-RELOAD: {scenario['name']} reset to ${self.config.risk.auto_reload_amount:,.0f}")
 
     def force_trade_crypto(self, prices, fx_rate):
         """Force a crypto trade on the best candidate if no natural signals"""
-        # First try natural signals
         for symbol in self.crypto_strategy.crypto_symbols:
             signal = self.crypto_strategy.generate_signal(symbol)
             if signal:
                 return signal
 
-        # No natural signals — force on best candidate
         best_symbol = None
         best_score = 999
         best_df = None
@@ -152,9 +161,7 @@ class TradeLab:
         for symbol in self.crypto_strategy.crypto_symbols:
             df = self.crypto_strategy.fetch_yahoo_crypto(symbol, "1h")
             if df is None or len(df) < 15: continue
-            
             vwap_z = self.crypto_strategy.calculate_vwap_zscore(df)
-            
             if vwap_z < best_score:
                 best_score = vwap_z
                 best_symbol = symbol
@@ -166,19 +173,11 @@ class TradeLab:
             atr = self.crypto_strategy.calculate_atr(best_df)
 
             return {
-                "symbol": best_symbol,
-                "action": "BUY",
-                "mode": "FORCED",
-                "current_price": current_price,
-                "data_source": "Yahoo",
-                "quantity_pct": 0.03,
-                "target_pct": atr * 1.0,
-                "stop_pct": atr * 0.8,
-                "net_target": atr * 1.0 - 0.006,
-                "risk_reward": 1.25,
-                "kelly": 0.1,
-                "entry_time": datetime.now().isoformat(),
-                "max_hold_hours": 2.0,
+                "symbol": best_symbol, "action": "BUY", "mode": "FORCED",
+                "current_price": current_price, "data_source": "Yahoo",
+                "quantity_pct": 0.03, "target_pct": atr * 1.0, "stop_pct": atr * 0.8,
+                "net_target": atr * 1.0 - 0.006, "risk_reward": 1.25, "kelly": 0.1,
+                "entry_time": datetime.now().isoformat(), "max_hold_hours": 2.0,
                 "market_cap_tier": "unknown",
                 "indicators": {"vwap_zscore": round(best_score, 3), "atr": round(atr, 4), "rsi": 50},
                 "reason": f"FORCED TRAINING | Z:{best_score:.2f} | ATR:{atr:.2%}"
@@ -192,15 +191,12 @@ class TradeLab:
         best_hist = None
 
         for symbol in self.config.data.symbols:
-            if self.is_crypto_symbol(symbol): continue
+            if self.is_special_symbol(symbol): continue
             hist = self.data._price_cache.get(symbol)
             if hist is None or len(hist) < 20: continue
-
             current_price = prices.get(symbol, 0)
             if current_price <= 0: continue
-
             z_score = self.strategy.calculate_z_score(hist)
-
             if z_score < best_z:
                 best_z = z_score
                 best_symbol = symbol
@@ -209,16 +205,11 @@ class TradeLab:
         if best_symbol and best_hist is not None and best_z < 0.5:
             current_price = prices.get(best_symbol, 0)
             rsi = self.calculate_rsi(best_hist.values)
-
             return {
-                "symbol": best_symbol,
-                "action": "BUY",
-                "mode": "FORCED",
-                "current_price": current_price,
-                "quantity_pct": 0.02,
+                "symbol": best_symbol, "action": "BUY", "mode": "FORCED",
+                "current_price": current_price, "quantity_pct": 0.02,
                 "reason": f"FORCED TRAINING | Z:{best_z:.2f} | RSI:{rsi:.0f}",
-                "z_score": best_z,
-                "rsi": rsi,
+                "z_score": best_z, "rsi": rsi,
             }
         return None
 
@@ -242,9 +233,8 @@ class TradeLab:
             vix = macro.get("vix", 20)
             total_trades = 0
 
-            # ========== CRYPTO: Natural + Forced ==========
+            # ========== CRYPTO ==========
             crypto_signal = self.force_trade_crypto(prices, fx_rate)
-
             if crypto_signal:
                 for scenario in self.scenario_runner.scenarios:
                     if scenario.get("type") != "crypto": continue
@@ -254,20 +244,15 @@ class TradeLab:
                     entry = self.scenario_runner.results[sid]
                     broker = entry["broker"]
                     broker.set_fx_rate(fx_rate)
-
                     symbol = crypto_signal["symbol"]
                     qty = crypto_signal["quantity_pct"]
                     current_price = crypto_signal["current_price"]
-
-                    if symbol not in prices:
-                        prices[symbol] = current_price
-
+                    if symbol not in prices: prices[symbol] = current_price
                     order = broker.place_market_order(symbol, "buy", qty, prices)
                     if order and order.status == "filled":
                         total_trades += 1
                         entry["trades"] += 1
                         logger.info(f"[CRYPTO {crypto_signal.get('mode', 'SIGNAL')}] BUY {order.quantity:.4f} {symbol} @ ${order.filled_price_usd:.2f} | {crypto_signal['reason']}")
-
                         self.letta.remember_trade({
                             "symbol": symbol, "action": "BUY",
                             "price": order.filled_price_usd, "quantity_pct": qty,
@@ -275,46 +260,65 @@ class TradeLab:
                             "reason": crypto_signal["reason"], "scenario_id": sid,
                         })
 
-            # ========== STOCKS: Natural + Forced ==========
-            stock_signal = self.force_trade_stocks(prices, fx_rate)
-
-            if stock_signal:
+            # ========== FIAT ==========
+            for symbol in self.fiat_strategy.fiat_symbols:
+                fiat_signal = self.fiat_strategy.generate_signal(symbol)
+                if not fiat_signal: continue
                 for scenario in self.scenario_runner.scenarios:
-                    if scenario.get("type") == "crypto": continue
+                    if scenario.get("type") != "fiat": continue
                     sid = scenario["id"]
-                    profile = self.get_risk_profile(sid)
-
                     if sid not in self.scenario_runner.results:
                         self.scenario_runner._init_scenario(sid)
-
                     entry = self.scenario_runner.results[sid]
                     broker = entry["broker"]
                     broker.set_fx_rate(fx_rate)
+                    symbol = fiat_signal["symbol"]
+                    qty = fiat_signal["quantity_pct"]
+                    current_price = fiat_signal["current_price"]
+                    if symbol not in prices: prices[symbol] = current_price
+                    order = broker.place_market_order(symbol, "buy", qty, prices)
+                    if order and order.status == "filled":
+                        total_trades += 1
+                        entry["trades"] += 1
+                        logger.info(f"[FIAT {fiat_signal.get('mode', 'SIGNAL')}] BUY {order.quantity:.4f} {symbol} @ ${order.filled_price_usd:.4f} | {fiat_signal['reason']}")
+                        self.letta.remember_trade({
+                            "symbol": symbol, "action": "BUY",
+                            "price": order.filled_price_usd, "quantity_pct": qty,
+                            "rsi": fiat_signal.get("indicators", {}).get("rsi", 50), "vix": vix,
+                            "reason": fiat_signal["reason"], "scenario_id": sid,
+                        })
 
+            # ========== STOCKS ==========
+            stock_signal = self.force_trade_stocks(prices, fx_rate)
+            if stock_signal:
+                for scenario in self.scenario_runner.scenarios:
+                    if scenario.get("type") != "stocks": continue
+                    sid = scenario["id"]
+                    profile = self.get_risk_profile(sid)
+                    if sid not in self.scenario_runner.results:
+                        self.scenario_runner._init_scenario(sid)
+                    entry = self.scenario_runner.results[sid]
+                    broker = entry["broker"]
+                    broker.set_fx_rate(fx_rate)
                     symbol = stock_signal["symbol"]
                     qty = stock_signal["quantity_pct"]
                     current_price = stock_signal["current_price"]
-
                     equity = broker.get_equity_cad(prices)
                     pos_count = len([p for p in broker.positions.values() if p.quantity > 0])
                     proposed_value = qty * current_price * fx_rate if fx_rate > 0 else 0
-
                     safe, reason = self.risk.can_execute(
                         decision=stock_signal, symbol=symbol, current_equity=equity,
                         initial_capital=broker.initial_capital_cad,
                         current_positions_count=pos_count, proposed_value_cad=proposed_value
                     )
-
                     if not safe: continue
                     if pos_count >= profile["max_positions"]: continue
                     if qty <= 0: continue
-
                     order = broker.place_market_order(symbol, "buy", qty, prices)
                     if order and order.status == "filled":
                         total_trades += 1
                         entry["trades"] += 1
                         logger.info(f"[STOCK {stock_signal.get('mode', 'SIGNAL')}] BUY {order.quantity:.4f} {symbol} @ ${order.filled_price_usd:.2f} | {stock_signal['reason']}")
-
                         self.letta.remember_trade({
                             "symbol": symbol, "action": "BUY",
                             "price": order.filled_price_usd, "quantity_pct": qty,
@@ -346,9 +350,9 @@ class TradeLab:
 
     def start(self):
         print(BANNER)
-        logger.info(f"FORCED TRAINING: ON — Trading every cycle regardless of signals")
-        logger.info(f"Crypto: {len(self.crypto_strategy.crypto_symbols)} symbols | Stocks: {len(self.config.data.symbols)} symbols")
-        logger.info(f"Auto-reload: ${self.config.risk.auto_reload_amount:,.0f} at ${self.config.risk.auto_reload_threshold:,.0f}")
+        logger.info(f"PHASE 2 COMPLETE — Stocks + Crypto + Fiat")
+        logger.info(f"Stocks: {len(self.config.data.symbols)} | Crypto: {len(self.crypto_strategy.crypto_symbols)} | Fiat: {len(self.fiat_strategy.fiat_symbols)}")
+        logger.info(f"Scenarios: {len(self.scenario_runner.scenarios)} | Auto-reload: ${self.config.risk.auto_reload_amount:,.0f}")
         logger.info(f"Letta Memory: {len(self.letta.rules)} rules")
         logger.info("24/7 Forced Training Loop starting...\n")
         self.run_cycle()

@@ -1,22 +1,13 @@
 {
   "scenarios": [
     {
-      "id": "starter_500",
-      "name": "Starter $500",
-      "starting_capital_cad": 500,
-      "monthly_deposit_cad": 0,
-      "risk_profile": "conservative",
-      "type": "stocks",
-      "description": "Conservative — Low risk stocks"
-    },
-    {
       "id": "basic_1k",
       "name": "Basic $1K",
       "starting_capital_cad": 1000,
       "monthly_deposit_cad": 100,
       "risk_profile": "balanced",
       "type": "stocks",
-      "description": "Balanced — Medium risk stocks"
+      "description": "Stocks — Balanced training"
     },
     {
       "id": "growth_2500",
@@ -25,7 +16,7 @@
       "monthly_deposit_cad": 250,
       "risk_profile": "balanced",
       "type": "stocks",
-      "description": "Balanced — Medium risk stocks"
+      "description": "Stocks — Balanced training"
     },
     {
       "id": "pro_5k",
@@ -34,16 +25,25 @@
       "monthly_deposit_cad": 500,
       "risk_profile": "aggressive",
       "type": "stocks",
-      "description": "Aggressive — High risk stocks"
+      "description": "Stocks — Aggressive training"
     },
     {
-      "id": "crypto_1k",
-      "name": "Crypto $1K",
-      "starting_capital_cad": 1000,
+      "id": "crypto_2500",
+      "name": "Crypto $2.5K",
+      "starting_capital_cad": 2500,
       "monthly_deposit_cad": 0,
       "risk_profile": "pennies",
       "type": "crypto",
-      "description": "Pennies Strategy — 24/7 crypto scalping"
+      "description": "Crypto — Pennies 24/7"
+    },
+    {
+      "id": "fiat_1k",
+      "name": "Fiat $1K",
+      "starting_capital_cad": 1000,
+      "monthly_deposit_cad": 0,
+      "risk_profile": "pennies",
+      "type": "fiat",
+      "description": "Fiat — Pennies forex"
     }
   ]
 }
