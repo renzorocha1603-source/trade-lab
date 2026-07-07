@@ -22,5 +22,65 @@
     "fees_cad": 150.07,
     "reason": "Initial entry: -4.8% decline in 10 days | Claude: The -4.80% return over 10 days with 2.00% volatility triggers recency bias, where investors overweight the short-term drop and ignore the lack of direct negative NVDA news, leading to exaggerated selling pressure as the crowd extrapolates recent price action into a trend.",
     "ai_modified": false
+  },
+  {
+    "timestamp": "2026-07-07T16:11:26.328807",
+    "symbol": "XLM-USD",
+    "action": "BUY",
+    "quantity": 0.03,
+    "price_usd": 0.19,
+    "value_cad": 0.01,
+    "fx_rate": 1.42,
+    "fees_cad": 0.0,
+    "reason": "FORCED TRAINING | Z:-2.16 | ATR:0.96%",
+    "ai_modified": true
+  },
+  {
+    "timestamp": "2026-07-07T16:11:28.284418",
+    "symbol": "EURUSD=X",
+    "action": "BUY",
+    "quantity": 0.02,
+    "price_usd": 1.14,
+    "value_cad": 0.03,
+    "fx_rate": 1.42,
+    "fees_cad": 0.0,
+    "reason": "FORCED FIAT | RSI:31",
+    "ai_modified": true
+  },
+  {
+    "timestamp": "2026-07-07T16:11:28.330112",
+    "symbol": "XLK",
+    "action": "BUY",
+    "quantity": 0.02,
+    "price_usd": 179.54,
+    "value_cad": 5.1,
+    "fx_rate": 1.42,
+    "fees_cad": 0.08,
+    "reason": "FORCED TRAINING | Z:-1.82 | RSI:39",
+    "ai_modified": true
+  },
+  {
+    "timestamp": "2026-07-07T16:11:28.330889",
+    "symbol": "XLK",
+    "action": "BUY",
+    "quantity": 0.02,
+    "price_usd": 179.54,
+    "value_cad": 5.1,
+    "fx_rate": 1.42,
+    "fees_cad": 0.08,
+    "reason": "FORCED TRAINING | Z:-1.82 | RSI:39",
+    "ai_modified": true
+  },
+  {
+    "timestamp": "2026-07-07T16:11:28.331302",
+    "symbol": "XLK",
+    "action": "BUY",
+    "quantity": 0.02,
+    "price_usd": 179.54,
+    "value_cad": 5.1,
+    "fx_rate": 1.42,
+    "fees_cad": 0.08,
+    "reason": "FORCED TRAINING | Z:-1.82 | RSI:39",
+    "ai_modified": true
   }
 ]
