@@ -2,7 +2,7 @@
 Crypto Pennies Strategy — Small consistent wins compound into big returns.
 24/7 trading with fee-aware math, VWAP Z-Score, Bollinger Bands, ATR stops.
 Includes market cap data from CoinGecko (free, no API key).
-Separate from stock strategy — completely different mathematical model.
+Uses Yahoo Finance for price data when Binance is blocked.
 """
 
 import logging
@@ -40,7 +40,7 @@ class CryptoPenniesStrategy:
 
         logger.info(f"Crypto Pennies Strategy | Target: {self.atr_target}× ATR | Stop: {self.atr_stop}× ATR | Max Hold: {self.max_hold}h | Fees: {self.fee_pct:.2%}")
 
-    # ==================== BINANCE DATA ====================
+    # ==================== DATA SOURCES ====================
 
     def fetch_binance_klines(self, symbol: str, interval: str = "1h", limit: int = 100) -> Optional[pd.DataFrame]:
         """Fetch OHLCV data from Binance public API (free, no key needed)"""
@@ -52,7 +52,7 @@ class CryptoPenniesStrategy:
             data = resp.json()
 
             if not data or "code" in data:
-                logger.warning(f"Binance error for {binance_symbol}: {data}")
+                logger.debug(f"Binance blocked for {binance_symbol}: {data.get('msg', 'Unknown')}")
                 return None
 
             df = pd.DataFrame(data, columns=[
@@ -68,18 +68,38 @@ class CryptoPenniesStrategy:
 
             return df
         except Exception as e:
-            logger.error(f"Binance fetch error: {e}")
+            logger.debug(f"Binance fetch error: {e}")
             return None
 
-    # ==================== COINGECKO MARKET CAP ====================
+    def fetch_yahoo_crypto(self, symbol: str, interval: str = "1h", limit: int = 100) -> Optional[pd.DataFrame]:
+        """Fetch crypto data from Yahoo Finance (works everywhere)"""
+        try:
+            import yfinance as yf
+            
+            # Map interval to Yahoo Finance period
+            period_map = {"1h": "5d", "15m": "5d", "4h": "1mo", "1d": "3mo"}
+            period = period_map.get(interval, "5d")
+            
+            ticker = yf.Ticker(symbol)
+            df = ticker.history(period=period, interval=interval)
+            
+            if df.empty:
+                return None
+            
+            df = df.reset_index()
+            df.columns = [c.lower() for c in df.columns]
+            df = df.rename(columns={'datetimelamb': 'timestamp'}) if 'datetimelamb' in df.columns else df
+            
+            if 'timestamp' not in df.columns and 'date' in df.columns:
+                df['timestamp'] = df['date']
+            
+            return df
+        except Exception as e:
+            logger.debug(f"Yahoo crypto fetch error: {e}")
+            return None
 
-    def fetch_market_cap(self, symbol: str) -> Optional[float]:
-        """Fetch market cap from CoinGecko free API (no key needed)"""
-        # Cache for 30 minutes to avoid rate limits
-        if self._market_cap_cache_time:
-            if (datetime.now() - self._market_cap_cache_time).seconds < 1800:
-                return self._market_cap_cache.get(symbol)
-
+    def fetch_coingecko_price(self, symbol: str) -> Optional[float]:
+        """Fetch current price from CoinGecko (works everywhere, free, no key)"""
         try:
             coin_map = {"BTC-USD": "bitcoin", "ETH-USD": "ethereum"}
             coin_id = coin_map.get(symbol, symbol.lower().replace("-usd", ""))
@@ -105,7 +125,6 @@ class CryptoPenniesStrategy:
             volume_24h = coin_data.get("usd_24h_vol")
             change_24h = coin_data.get("usd_24h_change")
 
-            # Cache the results
             self._market_cap_cache[symbol] = market_cap
             if volume_24h:
                 self._market_cap_cache[f"{symbol}_volume"] = volume_24h
@@ -114,27 +133,32 @@ class CryptoPenniesStrategy:
 
             self._market_cap_cache_time = datetime.now()
 
-            if market_cap:
-                logger.debug(f"Market cap {symbol}: ${market_cap:,.0f} | 24h change: {change_24h:.2f}%")
+            price = coin_data.get("usd")
+            if price:
+                logger.debug(f"CoinGecko {symbol}: ${price:.2f} | Cap: ${market_cap:,.0f}" if market_cap else f"CoinGecko {symbol}: ${price:.2f}")
 
-            return market_cap
+            return price
 
         except Exception as e:
             logger.debug(f"CoinGecko error for {symbol}: {e}")
-            return self._market_cap_cache.get(symbol)
+            return None
 
     def get_market_cap_rank(self, symbol: str) -> str:
         """Get market cap tier for risk assessment"""
-        market_cap = self.fetch_market_cap(symbol)
+        market_cap = self._market_cap_cache.get(symbol)
+        
+        if market_cap is None:
+            market_cap = self.fetch_coingecko_price(symbol)
+            market_cap = self._market_cap_cache.get(symbol)
 
         if market_cap is None:
             return "unknown"
 
-        if market_cap > 500_000_000_000:  # > $500B
+        if market_cap > 500_000_000_000:
             return "mega_cap"
-        elif market_cap > 100_000_000_000:  # > $100B
+        elif market_cap > 100_000_000_000:
             return "large_cap"
-        elif market_cap > 10_000_000_000:  # > $10B
+        elif market_cap > 10_000_000_000:
             return "mid_cap"
         else:
             return "small_cap"
@@ -146,16 +170,20 @@ class CryptoPenniesStrategy:
         if len(df) < period:
             return 0.02
 
-        high = df['high'].values[-period:]
-        low = df['low'].values[-period:]
-        close = df['close'].values[-period-1:-1] if len(df) > period else df['close'].values[:-1]
+        close_col = 'close' if 'close' in df.columns else 'Close'
+        high_col = 'high' if 'high' in df.columns else 'High'
+        low_col = 'low' if 'low' in df.columns else 'Low'
+
+        high = df[high_col].values[-period:]
+        low = df[low_col].values[-period:]
+        close = df[close_col].values[-period-1:-1] if len(df) > period else df[close_col].values[:-1]
 
         tr1 = high[1:] - low[1:]
         tr2 = np.abs(high[1:] - close)
         tr3 = np.abs(low[1:] - close)
         tr = np.maximum(np.maximum(tr1, tr2), tr3)
 
-        atr = np.mean(tr) / df['close'].iloc[-1]
+        atr = np.mean(tr) / df[close_col].iloc[-1]
         return atr
 
     def calculate_vwap_zscore(self, df: pd.DataFrame, window: int = 24) -> float:
@@ -163,25 +191,33 @@ class CryptoPenniesStrategy:
         if len(df) < window:
             return 0.0
 
-        recent = df.iloc[-window:]
-        vwap = (recent['close'] * recent['volume']).sum() / recent['volume'].sum()
-        current = df['close'].iloc[-1]
+        close_col = 'close' if 'close' in df.columns else 'Close'
+        vol_col = 'volume' if 'volume' in df.columns else 'Volume'
 
-        deviations = recent['close'] - vwap
+        recent_close = df[close_col].iloc[-window:]
+        recent_vol = df[vol_col].iloc[-window:] if vol_col in df.columns else pd.Series([1] * window)
+
+        if recent_vol.sum() == 0:
+            return 0.0
+
+        vwap = (recent_close * recent_vol).sum() / recent_vol.sum()
+        current = df[close_col].iloc[-1]
+
+        deviations = recent_close - vwap
         std_dev = deviations.std()
 
         if std_dev == 0:
             return 0.0
 
-        z_score = (current - vwap) / std_dev
-        return z_score
+        return (current - vwap) / std_dev
 
     def calculate_bollinger_width(self, df: pd.DataFrame, period: int = 20) -> float:
-        """Bollinger Band Width — measures volatility compression"""
+        """Bollinger Band Width"""
         if len(df) < period:
             return 0.03
 
-        close = df['close'].values[-period:]
+        close_col = 'close' if 'close' in df.columns else 'Close'
+        close = df[close_col].values[-period:]
         sma = np.mean(close)
         std = np.std(close)
 
@@ -196,8 +232,12 @@ class CryptoPenniesStrategy:
         if len(df) < window:
             return 1.0
 
-        current_vol = df['volume'].iloc[-1]
-        avg_vol = df['volume'].iloc[-window:].mean()
+        vol_col = 'volume' if 'volume' in df.columns else 'Volume'
+        if vol_col not in df.columns:
+            return 1.0
+
+        current_vol = df[vol_col].iloc[-1]
+        avg_vol = df[vol_col].iloc[-window:].mean()
 
         if avg_vol == 0:
             return 1.0
@@ -209,7 +249,8 @@ class CryptoPenniesStrategy:
         if len(df) < period + 1:
             return 50.0
 
-        close = df['close'].values
+        close_col = 'close' if 'close' in df.columns else 'Close'
+        close = df[close_col].values
         deltas = np.diff(close[-period-1:])
         gains = np.sum(deltas[deltas > 0]) / period
         losses = -np.sum(deltas[deltas < 0]) / period
@@ -222,7 +263,7 @@ class CryptoPenniesStrategy:
 
     # ==================== SIGNAL GENERATION ====================
 
-    def generate_signal(self, symbol: str) -> Optional[dict]:
+    def generate_signal(self, symbol: str, price_history: pd.Series = None) -> Optional[dict]:
         """Generate a trading signal for crypto"""
 
         if "BTC" in symbol:
@@ -230,11 +271,20 @@ class CryptoPenniesStrategy:
         else:
             interval = self.crypto_config.eth_timeframe
 
+        # Try Binance first, fallback to Yahoo Finance
         df = self.fetch_binance_klines(symbol, interval)
+        data_source = "Binance"
+
         if df is None or len(df) < 30:
+            df = self.fetch_yahoo_crypto(symbol, interval)
+            data_source = "Yahoo Finance"
+
+        if df is None or len(df) < 20:
+            logger.debug(f"Crypto {symbol}: Insufficient data from all sources")
             return None
 
-        current_price = df['close'].iloc[-1]
+        close_col = 'close' if 'close' in df.columns else 'Close'
+        current_price = df[close_col].iloc[-1]
 
         # Calculate all indicators
         atr = self.calculate_atr(df)
@@ -244,12 +294,13 @@ class CryptoPenniesStrategy:
         rsi = self.calculate_rsi(df)
 
         # Market cap data
-        market_cap = self.fetch_market_cap(symbol)
+        self.fetch_coingecko_price(symbol)
+        market_cap = self._market_cap_cache.get(symbol)
         cap_tier = self.get_market_cap_rank(symbol)
         volume_24h = self._market_cap_cache.get(f"{symbol}_volume")
         change_24h = self._market_cap_cache.get(f"{symbol}_change")
 
-        logger.info(f"Crypto {symbol} | ${current_price:.2f} | VWAP-Z: {vwap_z:.2f} | ATR: {atr:.2%} | BBW: {bb_width:.3f} | Vol: {vol_ratio:.1f}x | RSI: {rsi:.0f} | Cap: {cap_tier}")
+        logger.info(f"Crypto {symbol} [{data_source}] | ${current_price:.2f} | VWAP-Z: {vwap_z:.2f} | ATR: {atr:.2%} | BBW: {bb_width:.3f} | Vol: {vol_ratio:.1f}x | RSI: {rsi:.0f} | Cap: {cap_tier}")
 
         # Entry conditions
         entry_conditions = {
@@ -267,7 +318,7 @@ class CryptoPenniesStrategy:
             logger.debug(f"Crypto {symbol}: Conditions not met — {failed}")
             return None
 
-        # Adjust position size by market cap tier (safer for larger caps)
+        # Adjust position size by market cap tier
         cap_multiplier = {
             "mega_cap": 1.0,
             "large_cap": 0.9,
@@ -301,6 +352,7 @@ class CryptoPenniesStrategy:
             "symbol": symbol,
             "action": "BUY",
             "current_price": current_price,
+            "data_source": data_source,
             "quantity_pct": round(position_size, 4),
             "target_pct": round(target_pct, 4),
             "stop_pct": round(stop_pct, 4),
@@ -320,7 +372,7 @@ class CryptoPenniesStrategy:
                 "vol_ratio": round(vol_ratio, 2),
                 "rsi": round(rsi, 1),
             },
-            "reason": f"VWAP-Z: {vwap_z:.2f} | ATR: {atr:.2%} | Vol: {vol_ratio:.1f}x | RSI: {rsi:.0f} | Cap: {cap_tier}"
+            "reason": f"VWAP-Z: {vwap_z:.2f} | ATR: {atr:.2%} | Vol: {vol_ratio:.1f}x | RSI: {rsi:.0f} | Cap: {cap_tier} [{data_source}]"
         }
 
     # ==================== EXIT CHECK ====================
