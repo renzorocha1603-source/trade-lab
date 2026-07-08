@@ -27838,5 +27838,53 @@
     "fees_cad": 0.11,
     "reason": "DIP BUY | Z:-1.29 | Size:3.1% | RSI:50",
     "ai_modified": true
+  },
+  {
+    "timestamp": "2026-07-08T14:59:14.179059",
+    "symbol": "ICP-USD",
+    "action": "BUY",
+    "quantity": 0.0334,
+    "price_usd": 2.17,
+    "value_cad": 0.1,
+    "fx_rate": 1.42,
+    "fees_cad": 0.0,
+    "reason": "DIP BUY | Z:-1.17 | Size:3.3% | ATR:1.27%",
+    "ai_modified": true
+  },
+  {
+    "timestamp": "2026-07-08T14:59:14.565159",
+    "symbol": "TD.TO",
+    "action": "BUY",
+    "quantity": 0.0312,
+    "price_usd": 167.5,
+    "value_cad": 7.42,
+    "fx_rate": 1.42,
+    "fees_cad": 0.11,
+    "reason": "DIP BUY | Z:-1.27 | Size:3.1% | RSI:50",
+    "ai_modified": true
+  },
+  {
+    "timestamp": "2026-07-08T14:59:14.579970",
+    "symbol": "TD.TO",
+    "action": "BUY",
+    "quantity": 0.0312,
+    "price_usd": 167.5,
+    "value_cad": 7.42,
+    "fx_rate": 1.42,
+    "fees_cad": 0.11,
+    "reason": "DIP BUY | Z:-1.27 | Size:3.1% | RSI:50",
+    "ai_modified": true
+  },
+  {
+    "timestamp": "2026-07-08T14:59:14.596747",
+    "symbol": "TD.TO",
+    "action": "BUY",
+    "quantity": 0.0312,
+    "price_usd": 167.5,
+    "value_cad": 7.42,
+    "fx_rate": 1.42,
+    "fees_cad": 0.11,
+    "reason": "DIP BUY | Z:-1.27 | Size:3.1% | RSI:50",
+    "ai_modified": true
   }
 ]
