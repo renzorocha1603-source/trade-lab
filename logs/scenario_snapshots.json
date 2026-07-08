@@ -1,1 +1,14 @@
-[]
+[
+  {
+    "scenario_id": "crypto_2500",
+    "name": "Crypto $2.5K",
+    "timestamp": "2026-07-08T06:43:08.155520",
+    "starting_capital": 2500,
+    "equity_cad": 2499.99,
+    "cash_cad": 2499.99,
+    "trades": 1,
+    "positions": 1,
+    "monthly_deposit": 0,
+    "risk_profile": "pennies"
+  }
+]
