@@ -19234,5 +19234,17 @@
     "fees_cad": 0.38,
     "reason": "DIP BUY | Z:-1.85 | Size:4.1% | RSI:48",
     "ai_modified": true
+  },
+  {
+    "timestamp": "2026-07-08T07:42:13.991290",
+    "symbol": "ALGO-USD",
+    "action": "BUY",
+    "quantity": 0.037,
+    "price_usd": 0.08,
+    "value_cad": 0.0,
+    "fx_rate": 1.42,
+    "fees_cad": 0.0,
+    "reason": "DIP BUY | Z:-1.35 | Size:3.7% | ATR:0.83%",
+    "ai_modified": true
   }
 ]
