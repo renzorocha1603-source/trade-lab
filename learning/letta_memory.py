@@ -1,9 +1,10 @@
 """
-Letta Memory v2.5 — Best of Both Worlds
+Letta Memory v2.6 — Fast Learning Mode
 Clean structure + Rich multi-condition learning + Time decay + Category/Regime tracking
 Learns from DeepSeek + Claude signals, market regimes, symbol categories, and model agreement.
 Letta is the FINAL DECISION MAKER — combines all signals with learned memory.
 Grok-optimized decision engine with improved scoring formulas.
+FAST MODE: Evaluates trades after 1 hour instead of 24 hours.
 """
 
 import json
@@ -17,7 +18,7 @@ logger = logging.getLogger(__name__)
 
 
 class LettaMemory:
-    """Advanced Self-improving Trading Memory — Clean & Powerful"""
+    """Advanced Self-improving Trading Memory — Fast Learning Mode"""
 
     def __init__(self, config):
         self.config = config
@@ -28,10 +29,11 @@ class LettaMemory:
         self.rules: List[dict] = self._load(self.rules_file, [])
         self.trade_history: List[dict] = self._load(self.trades_file, [])
 
-        self.max_trades = 1200
-        self.max_rules = 80
-        self.min_confidence = 0.52
+        self.max_trades = 5000
+        self.max_rules = 100
+        self.min_confidence = 0.50
         self.rule_decay_days = 45
+        self.evaluation_hours = 1  # FAST MODE: Evaluate after 1 hour
 
         self.regimes = {
             "fear": {"min_vix": 30},
@@ -40,7 +42,7 @@ class LettaMemory:
             "complacent": {"max_vix": 15},
         }
 
-        logger.info(f"Letta Memory v2.5 | {len(self.rules)} rules | {len(self.trade_history)} trades | Decay: {self.rule_decay_days}d")
+        logger.info(f"Letta Memory v2.6 FAST MODE | {len(self.rules)} rules | {len(self.trade_history)} trades | Evaluate: {self.evaluation_hours}h | Decay: {self.rule_decay_days}d")
 
     # ==================== FILE I/O ====================
 
@@ -115,7 +117,7 @@ class LettaMemory:
     # ==================== OUTCOME CHECKING ====================
 
     def check_outcomes(self, current_prices: Dict[str, float]):
-        """Check past trades and trigger learning"""
+        """Check past trades and trigger learning — FAST MODE (1 hour)"""
         learned = 0
 
         for trade in self.trade_history:
@@ -124,11 +126,12 @@ class LettaMemory:
 
             trade_time = datetime.fromisoformat(trade["timestamp"])
             hours_elapsed = (datetime.now() - trade_time).total_seconds() / 3600
-            if hours_elapsed < 24:
+            if hours_elapsed < self.evaluation_hours:
                 continue
 
             current_price = current_prices.get(trade["symbol"])
             if not current_price or trade["price"] == 0:
+                logger.debug(f"Letta: No price for {trade['symbol']} — skipping evaluation")
                 continue
 
             pnl_pct = ((current_price - trade["price"]) / trade["price"]) * 100
@@ -139,6 +142,8 @@ class LettaMemory:
             trade["outcome_success"] = pnl_pct > 0.0
             trade["outcome_checked"] = True
 
+            logger.info(f"Letta evaluating: {trade['symbol']} {trade['action']} | Entry: ${trade['price']:.2f} | Current: ${current_price:.2f} | PnL: {pnl_pct:+.2f}% | {'✅ WIN' if pnl_pct > 0 else '❌ LOSS'}")
+
             self._learn_from_outcome(trade)
             learned += 1
 
@@ -146,7 +151,7 @@ class LettaMemory:
             self._decay_old_rules()
             self._prune_rules()
             self._save()
-            logger.info(f"Letta learned from {learned} outcomes | {len(self.rules)} rules active")
+            logger.info(f"🧠 Letta learned from {learned} outcomes | {len(self.rules)} rules active")
 
     # ==================== LEARNING ENGINE ====================
 
@@ -505,7 +510,7 @@ class LettaMemory:
         stats = self.get_stats()
         print(f"""
 ╔══════════════════════════════════════════════════╗
-║           LETTA MEMORY v2.5 REPORT              ║
+║           LETTA MEMORY v2.6 REPORT              ║
 ╠══════════════════════════════════════════════════╣
 ║ Rules: {stats['total_rules']:>5} | Active: {stats['active_rules']:>5} | Trades: {stats['total_trades']:>5}         ║
 ║ Win Rate: {stats['win_rate']:>5.1f}% | Avg Win: {stats['avg_win_pnl']:>+6.2f}% | Avg Loss: {stats['avg_loss_pnl']:>+6.2f}% ║
