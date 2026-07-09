@@ -51696,19 +51696,19 @@
     "ai_modified": true
   },
   {
-    "timestamp": "2026-07-09T10:05:46.658373",
+    "timestamp": "2026-07-09T10:06:35.357512",
     "symbol": "ADA-USD",
     "action": "BUY",
-    "quantity": 0.0176,
+    "quantity": 0.0134,
     "price_usd": 0.17,
     "value_cad": 0.0,
     "fx_rate": 1.42,
     "fees_cad": 0.0,
-    "reason": "DIP BUY | Z:-0.38 | Size:1.8% | ATR:0.83%",
+    "reason": "DIP BUY | Z:-0.17 | Size:1.3% | ATR:0.83%",
     "ai_modified": true
   },
   {
-    "timestamp": "2026-07-09T10:05:47.036556",
+    "timestamp": "2026-07-09T10:06:35.750933",
     "symbol": "WMT",
     "action": "BUY",
     "quantity": 0.0314,
@@ -51720,7 +51720,7 @@
     "ai_modified": true
   },
   {
-    "timestamp": "2026-07-09T10:05:47.071865",
+    "timestamp": "2026-07-09T10:06:35.776486",
     "symbol": "WMT",
     "action": "BUY",
     "quantity": 0.0314,
@@ -51732,7 +51732,7 @@
     "ai_modified": true
   },
   {
-    "timestamp": "2026-07-09T10:05:47.105191",
+    "timestamp": "2026-07-09T10:06:35.806695",
     "symbol": "WMT",
     "action": "BUY",
     "quantity": 0.0314,
