@@ -1,10 +1,9 @@
 """
-Letta Memory v2.6 — Fast Learning Mode
-Clean structure + Rich multi-condition learning + Time decay + Category/Regime tracking
-Learns from DeepSeek + Claude signals, market regimes, symbol categories, and model agreement.
-Letta is the FINAL DECISION MAKER — combines all signals with learned memory.
-Grok-optimized decision engine with improved scoring formulas.
-FAST MODE: Evaluates trades after 1 hour instead of 24 hours.
+Letta Memory v2.7 — Active Learning Mode
+Storage & Retrieval Engine for learned trading rules.
+Reflection Engine creates rules via DeepSeek analysis.
+Letta stores, retrieves, and applies them during trading.
+Evaluates trades after 1 hour for rapid feedback.
 """
 
 import json
@@ -18,7 +17,7 @@ logger = logging.getLogger(__name__)
 
 
 class LettaMemory:
-    """Advanced Self-improving Trading Memory — Fast Learning Mode"""
+    """Trading Memory — Storage & Retrieval for learned rules"""
 
     def __init__(self, config):
         self.config = config
@@ -33,7 +32,7 @@ class LettaMemory:
         self.max_rules = 100
         self.min_confidence = 0.50
         self.rule_decay_days = 45
-        self.evaluation_hours = 1  # FAST MODE: Evaluate after 1 hour
+        self.evaluation_hours = 1
 
         self.regimes = {
             "fear": {"min_vix": 30},
@@ -42,7 +41,7 @@ class LettaMemory:
             "complacent": {"max_vix": 15},
         }
 
-        logger.info(f"Letta Memory v2.6 FAST MODE | {len(self.rules)} rules | {len(self.trade_history)} trades | Evaluate: {self.evaluation_hours}h | Decay: {self.rule_decay_days}d")
+        logger.info(f"Letta Memory v2.7 | {len(self.rules)} rules | {len(self.trade_history)} trades | Evaluate: {self.evaluation_hours}h")
 
     # ==================== FILE I/O ====================
 
@@ -117,8 +116,8 @@ class LettaMemory:
     # ==================== OUTCOME CHECKING ====================
 
     def check_outcomes(self, current_prices: Dict[str, float]):
-        """Check past trades and trigger learning — FAST MODE (1 hour)"""
-        learned = 0
+        """Check past trades and mark outcomes — Reflection Engine creates rules separately"""
+        checked = 0
 
         for trade in self.trade_history:
             if trade.get("outcome_checked"):
@@ -131,7 +130,6 @@ class LettaMemory:
 
             current_price = current_prices.get(trade["symbol"])
             if not current_price or trade["price"] == 0:
-                logger.debug(f"Letta: No price for {trade['symbol']} — skipping evaluation")
                 continue
 
             pnl_pct = ((current_price - trade["price"]) / trade["price"]) * 100
@@ -141,135 +139,50 @@ class LettaMemory:
             trade["outcome_pnl_pct"] = round(pnl_pct, 3)
             trade["outcome_success"] = pnl_pct > 0.0
             trade["outcome_checked"] = True
+            checked += 1
 
-            logger.info(f"Letta evaluating: {trade['symbol']} {trade['action']} | Entry: ${trade['price']:.2f} | Current: ${current_price:.2f} | PnL: {pnl_pct:+.2f}% | {'✅ WIN' if pnl_pct > 0 else '❌ LOSS'}")
+            logger.info(f"Letta: {trade['symbol']} {trade['action']} | Entry: ${trade['price']:.2f} | Current: ${current_price:.2f} | PnL: {pnl_pct:+.2f}% | {'✅ WIN' if pnl_pct > 0 else '❌ LOSS'}")
 
-            self._learn_from_outcome(trade)
-            learned += 1
-
-        if learned > 0:
+        if checked > 0:
             self._decay_old_rules()
             self._prune_rules()
             self._save()
-            logger.info(f"🧠 Letta learned from {learned} outcomes | {len(self.rules)} rules active")
+            logger.info(f"Letta: {checked} trades evaluated | {len(self.rules)} rules in memory")
 
-    # ==================== LEARNING ENGINE ====================
+    # ==================== RULE MANAGEMENT (Reflection Engine feeds these) ====================
 
-    def _learn_from_outcome(self, trade: dict):
-        """Create multiple rule types from a single trade outcome"""
-        success = trade.get("outcome_success", False)
-        pnl = trade.get("outcome_pnl_pct", 0)
-        rsi = trade.get("rsi")
-        vix = trade.get("vix")
-        ds_score = trade.get("deepseek_score")
-        claude_sent = trade.get("claude_sentiment")
-        category = trade.get("category", "unknown")
-        regime = trade.get("regime", "unknown")
-        freshness = trade.get("news_freshness")
+    def add_rules_from_reflection(self, new_rules: List[dict]):
+        """Receive rules created by the Reflection Engine"""
+        added = 0
+        for rule in new_rules:
+            if not rule.get("id"):
+                continue
 
-        if rsi is not None and vix is not None:
-            if rsi < 35 and vix > 25:
-                self._add_rule(
-                    rule_id="high_vix_low_rsi",
-                    description=f"High VIX ({vix:.0f}) + Low RSI ({rsi:.0f}) = dip buys work in {regime}",
-                    conditions={"min_vix": 25, "max_rsi": 35},
-                    recommendation="amplify_buy" if success else "dampen_buy",
-                    success=success, pnl=pnl
-                )
-            elif rsi > 65 and vix < 18:
-                self._add_rule(
-                    rule_id="low_vix_high_rsi",
-                    description=f"Low VIX ({vix:.0f}) + High RSI ({rsi:.0f}) = profit taking works",
-                    conditions={"max_vix": 18, "min_rsi": 65},
-                    recommendation="amplify_sell" if success else "no_change",
-                    success=success, pnl=pnl
-                )
+            # Check if rule already exists
+            existing = False
+            for existing_rule in self.rules:
+                if existing_rule.get("id") == rule.get("id"):
+                    # Update existing rule
+                    existing_rule["times_seen"] = existing_rule.get("times_seen", 0) + rule.get("times_seen", 1)
+                    existing_rule["times_worked"] = existing_rule.get("times_worked", 0) + rule.get("times_worked", 0)
+                    existing_rule["confidence"] = rule.get("confidence", 0.6)
+                    existing_rule["description"] = rule.get("description", existing_rule.get("description", ""))
+                    existing_rule["last_updated"] = datetime.now().isoformat()
+                    existing_rule["last_seen"] = datetime.now().isoformat()
+                    existing = True
+                    break
 
-        if ds_score is not None and claude_sent is not None:
-            ds_dir = "bullish" if ds_score > 0.2 else "bearish" if ds_score < -0.2 else "neutral"
-            cl_dir = "bullish" if claude_sent > 0.2 else "bearish" if claude_sent < -0.2 else "neutral"
-            agree = (ds_dir == cl_dir and ds_dir != "neutral")
-
-            if agree:
-                self._add_rule(
-                    rule_id=f"models_agree_{ds_dir}",
-                    description=f"Both AIs agree ({ds_dir}) = higher confidence",
-                    conditions={"models_agree": True, "direction": ds_dir},
-                    recommendation="amplify_buy" if success else "dampen_buy",
-                    success=success, pnl=pnl
-                )
-            else:
-                self._add_rule(
-                    rule_id="models_disagree",
-                    description=f"AIs disagree (DS:{ds_dir}, Claude:{cl_dir}) = trust DeepSeek math",
-                    conditions={"models_agree": False},
-                    recommendation="follow_deepseek" if success else "reduce_position",
-                    success=success, pnl=pnl
-                )
-
-        self._add_rule(
-            rule_id=f"category_{category}",
-            description=f"{category.replace('_',' ').title()} performance in {regime}",
-            conditions={"category": category, "regime": regime},
-            recommendation="no_change",
-            success=success, pnl=pnl
-        )
-
-        if freshness is not None:
-            if freshness >= 0.7:
-                self._add_rule(
-                    rule_id="fresh_news",
-                    description="Fresh news (>0.7) leads to better outcomes",
-                    conditions={"min_news_freshness": 0.7},
-                    recommendation="amplify_buy" if success else "no_change",
-                    success=success, pnl=pnl
-                )
-            elif freshness < 0.4:
-                self._add_rule(
-                    rule_id="stale_news",
-                    description="Stale news (<0.4) = wait for fresh data",
-                    conditions={"max_news_freshness": 0.4},
-                    recommendation="dampen_buy" if not success else "no_change",
-                    success=success, pnl=pnl
-                )
-
-        self._add_rule(
-            rule_id=f"regime_{regime}",
-            description=f"Trading in {regime} regime",
-            conditions={"regime": regime},
-            recommendation="amplify_buy" if success else "dampen_buy",
-            success=success, pnl=pnl
-        )
-
-    def _add_rule(self, rule_id: str, description: str, conditions: dict,
-                  recommendation: str, success: bool, pnl: float):
-        """Insert or update a rule"""
-        for rule in self.rules:
-            if rule.get("id") == rule_id:
-                rule["times_seen"] += 1
-                if success:
-                    rule["times_worked"] += 1
-                rule["total_pnl"] = rule.get("total_pnl", 0) + pnl
-                rule["confidence"] = rule["times_worked"] / max(rule["times_seen"], 1)
-                rule["avg_pnl"] = round(rule["total_pnl"] / rule["times_seen"], 2)
+            if not existing:
+                rule["created"] = rule.get("created", datetime.now().isoformat())
                 rule["last_updated"] = datetime.now().isoformat()
                 rule["last_seen"] = datetime.now().isoformat()
-                return
+                self.rules.append(rule)
+                added += 1
 
-        self.rules.append({
-            "id": rule_id,
-            "description": description,
-            "conditions": conditions,
-            "recommendation": recommendation,
-            "confidence": 0.7 if success else 0.4,
-            "times_seen": 1,
-            "times_worked": 1 if success else 0,
-            "total_pnl": pnl,
-            "avg_pnl": round(pnl, 2),
-            "created": datetime.now().isoformat(),
-            "last_updated": datetime.now().isoformat(),
-            "last_seen": datetime.now().isoformat(),
-        })
+        if added > 0:
+            self._prune_rules()
+            self._save()
+            logger.info(f"Letta: Added {added} new rules from Reflection Engine | Total: {len(self.rules)}")
 
     # ==================== MAINTENANCE ====================
 
@@ -363,18 +276,16 @@ class LettaMemory:
             "top_rules": [{"id": r["id"], "conf": r["confidence"], "desc": r["description"][:80]} for r in applicable[:3]]
         }
 
-    # ==================== FINAL DECISION ENGINE (Grok Optimized) ====================
+    # ==================== FINAL DECISION ENGINE ====================
 
     def make_final_decision(self, symbol: str, base_signal, deepseek_signal: dict = None,
                            claude_opinion: dict = None, current_price: float = 0,
                            macro: dict = None) -> dict:
         """
-        Letta is the final decision maker.
+        Letta combines all signals with learned memory.
         Weights: Strategy 40% | DeepSeek 30% | Claude 15% | Letta Memory 15%
-        Grok-optimized scoring formulas with improved quantity scaling.
         """
 
-        # Normalize base_signal (supports both object and dict)
         if hasattr(base_signal, 'action'):
             base_action = base_signal.action.value
             base_qty = getattr(base_signal, 'quantity_pct', 0.05)
@@ -386,7 +297,6 @@ class LettaMemory:
             base_conf = base_signal.get('confidence', 0.6)
             base_reason = base_signal.get('reason', '')
 
-        # Extract AI signals with safe defaults
         ds_score = deepseek_signal.get('sentiment_score', 0) if deepseek_signal else 0
         ds_conf = deepseek_signal.get('confidence', 0.5) if deepseek_signal else 0.5
         ds_rec = deepseek_signal.get('recommendation', 'no_change') if deepseek_signal else 'no_change'
@@ -395,7 +305,6 @@ class LettaMemory:
         cl_conf = claude_opinion.get('confidence', 0.5) if claude_opinion else 0.5
         cl_rec = claude_opinion.get('recommendation', 'no_change') if claude_opinion else 'no_change'
 
-        # Get Letta learned advice
         rsi = base_signal.metrics.get('rsi', 50) if hasattr(base_signal, 'metrics') and base_signal.metrics else 50
         vix = macro.get('vix', 20) if macro else 20
         news_freshness = base_signal.metrics.get('news_freshness', 0.5) if hasattr(base_signal, 'metrics') and base_signal.metrics else 0.5
@@ -406,7 +315,6 @@ class LettaMemory:
             news_freshness=news_freshness
         )
 
-        # Weighted scoring
         base_score = 1.0 if base_action == "BUY" else (-1.0 if base_action == "SELL" else 0.0)
         base_weighted = base_score * base_conf * 0.40
         ds_weighted = ds_score * ds_conf * 0.30
@@ -425,7 +333,6 @@ class LettaMemory:
 
         final_score = base_weighted + ds_weighted + cl_weighted + letta_weighted
 
-        # Grok's improved decision logic with dynamic quantity scaling
         if final_score > 0.28:
             action = "BUY"
             qty = min(1.0, base_qty * (1.0 + final_score))
@@ -436,7 +343,6 @@ class LettaMemory:
             action = "HOLD"
             qty = 0.0
 
-        # Build reason string
         reason_parts = [f"Strategy: {base_reason[:60]}"]
         if deepseek_signal:
             reason_parts.append(f"DeepSeek: {ds_rec} ({ds_score:+.2f})")
@@ -446,7 +352,6 @@ class LettaMemory:
             reason_parts.append(f"Letta: {letta_reason[:70]}")
         reason_parts.append(f"Score: {final_score:+.3f}")
 
-        # Track model agreement
         ds_dir = "bullish" if ds_score > 0.2 else "bearish" if ds_score < -0.2 else "neutral"
         cl_dir = "bullish" if cl_score > 0.2 else "bearish" if cl_score < -0.2 else "neutral"
         models_agree = (ds_dir == cl_dir and ds_dir != "neutral")
@@ -510,7 +415,7 @@ class LettaMemory:
         stats = self.get_stats()
         print(f"""
 ╔══════════════════════════════════════════════════╗
-║           LETTA MEMORY v2.6 REPORT              ║
+║           LETTA MEMORY v2.7 REPORT              ║
 ╠══════════════════════════════════════════════════╣
 ║ Rules: {stats['total_rules']:>5} | Active: {stats['active_rules']:>5} | Trades: {stats['total_trades']:>5}         ║
 ║ Win Rate: {stats['win_rate']:>5.1f}% | Avg Win: {stats['avg_win_pnl']:>+6.2f}% | Avg Loss: {stats['avg_loss_pnl']:>+6.2f}% ║
