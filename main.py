@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 """
-TRADE LAB v2.9 — SMART TRAINING MODE (Phase 2 Complete)
-Stocks: Z-Score + Kelly — REAL signals only
-Crypto: DIP/MOMENTUM/BREAKOUT — REAL signals only
-Fiat: Pennies Scalping — REAL signals only
-Letta learns from GENUINE trading decisions.
+TRADE LAB v2.6 — FAST LEARNING MODE
+Stocks: Z-Score + Kelly — REAL signals + forced for training
+Crypto: DIP/MOMENTUM/BREAKOUT — REAL signals + forced for training
+Fiat: Pennies Scalping — REAL signals + FORCED every cycle
+Letta evaluates after 1 HOUR (not 24h) for rapid learning.
 GitHub API authentication for log pushing.
 """
 
@@ -31,9 +31,9 @@ logger = logging.getLogger("TradeLab")
 
 BANNER = """
 ╔══════════════════════════════════════════════════════════════╗
-║   TRADE LAB v2.9 — SMART TRAINING MODE (Phase 2 Complete)  ║
-║   Stocks · Crypto · Fiat — Real Signals Only               ║
-║   Letta learns from GENUINE trading decisions.             ║
+║   TRADE LAB v2.6 — FAST LEARNING MODE                      ║
+║   Stocks · Crypto · Fiat — Real Signals + Forced Training  ║
+║   Letta evaluates every 1 HOUR for rapid learning.         ║
 ╚══════════════════════════════════════════════════════════════╝
 """
 
@@ -68,7 +68,7 @@ class TradeLab:
             "consumer": ["WMT"],
         }
 
-        logger.info(f"TradeLab v2.9 SMART MODE | Stocks: {len(self.config.data.symbols)} | Crypto: {len(self.crypto_strategy.crypto_symbols)} | Fiat: {len(self.fiat_strategy.fiat_symbols)}")
+        logger.info(f"TradeLab v2.6 FAST MODE | Stocks: {len(self.config.data.symbols)} | Crypto: {len(self.crypto_strategy.crypto_symbols)} | Fiat: {len(self.fiat_strategy.fiat_symbols)}")
 
     def is_crypto_symbol(self, symbol: str) -> bool:
         return symbol in self.crypto_strategy.crypto_symbols
@@ -131,50 +131,49 @@ class TradeLab:
                 logger.warning(f"AUTO-RELOAD: {scenario['name']} reset to ${self.config.risk.auto_reload_amount:,.0f}")
 
     def find_best_crypto(self, prices, fx_rate):
-        """Find the best crypto trade based on REAL signals — no forcing"""
-        best_signal = None
-        best_score = 999
-        
+        """Find crypto trade — natural signal or best dip"""
         for symbol in self.crypto_strategy.crypto_symbols:
             signal = self.crypto_strategy.generate_signal(symbol)
             if signal:
-                # Natural signal found — use it
                 return signal
-            
-            # Track best candidate by VWAP Z-Score
+
+        best_symbol = None
+        best_score = 999
+        best_df = None
+
+        for symbol in self.crypto_strategy.crypto_symbols:
             df = self.crypto_strategy.fetch_yahoo_crypto(symbol, "1h")
             if df is None or len(df) < 15: continue
             vwap_z = self.crypto_strategy.calculate_vwap_zscore(df)
-            
-            # Only consider REAL dips (Z < 0 means below VWAP)
-            if vwap_z < 0 and vwap_z < best_score:
+            if vwap_z < best_score:
                 best_score = vwap_z
-                close_col = 'close' if 'close' in df.columns else 'Close'
-                current_price = df[close_col].iloc[-1]
-                atr = self.crypto_strategy.calculate_atr(df)
-                
-                # Size based on dip strength — stronger dip = bigger position
-                dip_strength = min(1.0, abs(vwap_z) / 3.0)
-                position_size = round(0.01 + (dip_strength * 0.06), 4)
-                
-                best_signal = {
-                    "symbol": symbol, "action": "BUY", "mode": "DIP",
-                    "current_price": current_price, "data_source": "Yahoo",
-                    "quantity_pct": position_size,
-                    "target_pct": atr * 1.5, "stop_pct": atr * 1.0,
-                    "entry_time": datetime.now().isoformat(), "max_hold_hours": 4.0,
-                    "indicators": {"vwap_zscore": round(vwap_z, 3), "atr": round(atr, 4), "rsi": 50},
-                    "reason": f"DIP BUY | Z:{vwap_z:.2f} | Size:{position_size:.1%} | ATR:{atr:.2%}"
-                }
-        
-        return best_signal
+                best_symbol = symbol
+                best_df = df
+
+        if best_symbol and best_df is not None and best_score < 0:
+            close_col = 'close' if 'close' in best_df.columns else 'Close'
+            current_price = best_df[close_col].iloc[-1]
+            atr = self.crypto_strategy.calculate_atr(best_df)
+            dip_strength = min(1.0, abs(best_score) / 3.0)
+            position_size = round(0.01 + (dip_strength * 0.06), 4)
+
+            return {
+                "symbol": best_symbol, "action": "BUY", "mode": "DIP",
+                "current_price": current_price, "data_source": "Yahoo",
+                "quantity_pct": position_size,
+                "target_pct": atr * 1.5, "stop_pct": atr * 1.0,
+                "entry_time": datetime.now().isoformat(), "max_hold_hours": 4.0,
+                "indicators": {"vwap_zscore": round(best_score, 3), "atr": round(atr, 4), "rsi": 50},
+                "reason": f"DIP BUY | Z:{best_score:.2f} | Size:{position_size:.1%} | ATR:{atr:.2%}"
+            }
+        return None
 
     def find_best_stock(self, prices, fx_rate):
-        """Find the best stock trade based on REAL Z-Score signals"""
+        """Find stock trade — best Z-Score dip"""
         best_symbol = None
         best_z = 999
         best_hist = None
-        
+
         for symbol in self.config.data.symbols:
             if self.is_special_symbol(symbol): continue
             hist = self.data._price_cache.get(symbol)
@@ -182,22 +181,17 @@ class TradeLab:
             current_price = prices.get(symbol, 0)
             if current_price <= 0: continue
             z_score = self.strategy.calculate_z_score(hist)
-            
-            # Only consider REAL dips (Z < 0)
-            if z_score < 0 and z_score < best_z:
+            if z_score < best_z:
                 best_z = z_score
                 best_symbol = symbol
                 best_hist = hist
 
-        # Only trade if we found a genuine dip
-        if best_symbol and best_hist is not None and best_z < -0.1:
+        if best_symbol and best_hist is not None and best_z < 0:
             current_price = prices.get(best_symbol, 0)
             rsi = self.calculate_rsi(best_hist.values)
-            
-            # Size based on Z-Score strength
             dip_strength = min(1.0, abs(best_z) / 3.0)
             position_size = round(0.01 + (dip_strength * 0.05), 4)
-            
+
             return {
                 "symbol": best_symbol, "action": "BUY", "mode": "DIP",
                 "current_price": current_price, "quantity_pct": position_size,
@@ -211,7 +205,7 @@ class TradeLab:
         self.cycle_count += 1
 
         logger.info(f"{'='*70}")
-        logger.info(f"CYCLE #{self.cycle_count} | SMART TRAINING | {start.strftime('%Y-%m-%d %H:%M:%S')}")
+        logger.info(f"CYCLE #{self.cycle_count} | FAST TRAINING | {start.strftime('%Y-%m-%d %H:%M:%S')}")
         logger.info(f"{'='*70}")
 
         try:
@@ -225,7 +219,7 @@ class TradeLab:
             vix = macro.get("vix", 20)
             total_trades = 0
 
-            # ========== CRYPTO: Real signals only ==========
+            # ========== CRYPTO ==========
             crypto_signal = self.find_best_crypto(prices, fx_rate)
             if crypto_signal:
                 for scenario in self.scenario_runner.scenarios:
@@ -252,36 +246,76 @@ class TradeLab:
                             "vix": vix, "reason": crypto_signal["reason"], "scenario_id": sid,
                         })
 
-            # ========== FIAT: Real signals only ==========
+            # ========== FIAT: Natural + FORCED every cycle ==========
+            fiat_traded = False
+
             for symbol in self.fiat_strategy.fiat_symbols:
                 fiat_signal = self.fiat_strategy.generate_signal(symbol)
-                if not fiat_signal: continue
-                
-                for scenario in self.scenario_runner.scenarios:
-                    if scenario.get("type") != "fiat": continue
-                    sid = scenario["id"]
-                    if sid not in self.scenario_runner.results:
-                        self.scenario_runner._init_scenario(sid)
-                    entry = self.scenario_runner.results[sid]
-                    broker = entry["broker"]
-                    broker.set_fx_rate(fx_rate)
-                    sym = fiat_signal["symbol"]
-                    qty = fiat_signal["quantity_pct"]
-                    cp = fiat_signal["current_price"]
-                    if sym not in prices: prices[sym] = cp
-                    order = broker.place_market_order(sym, "buy", qty, prices)
-                    if order and order.status == "filled":
-                        total_trades += 1
-                        entry["trades"] += 1
-                        self.tracker.record_trade(sym, "BUY", order.quantity, order.filled_price_usd, fiat_signal["reason"], True, fx_rate, order.fx_fee_cad)
-                        logger.info(f"[FIAT] BUY {order.quantity:.4f} {sym} @ ${order.filled_price_usd:.4f} | {fiat_signal['reason']}")
-                        self.letta.remember_trade({
-                            "symbol": sym, "action": "BUY", "price": order.filled_price_usd,
-                            "quantity_pct": qty, "rsi": fiat_signal.get("indicators", {}).get("rsi", 50),
-                            "vix": vix, "reason": fiat_signal["reason"], "scenario_id": sid,
-                        })
+                if fiat_signal:
+                    for scenario in self.scenario_runner.scenarios:
+                        if scenario.get("type") != "fiat": continue
+                        sid = scenario["id"]
+                        if sid not in self.scenario_runner.results:
+                            self.scenario_runner._init_scenario(sid)
+                        entry = self.scenario_runner.results[sid]
+                        broker = entry["broker"]
+                        broker.set_fx_rate(fx_rate)
+                        sym = fiat_signal["symbol"]
+                        qty = fiat_signal["quantity_pct"]
+                        cp = fiat_signal["current_price"]
+                        if sym not in prices: prices[sym] = cp
+                        order = broker.place_market_order(sym, "buy", qty, prices)
+                        if order and order.status == "filled":
+                            total_trades += 1
+                            entry["trades"] += 1
+                            fiat_traded = True
+                            self.tracker.record_trade(sym, "BUY", order.quantity, order.filled_price_usd, fiat_signal["reason"], True, fx_rate, order.fx_fee_cad)
+                            logger.info(f"[FIAT] BUY {order.quantity:.4f} {sym} @ ${order.filled_price_usd:.4f} | {fiat_signal['reason']}")
+                            self.letta.remember_trade({
+                                "symbol": sym, "action": "BUY", "price": order.filled_price_usd,
+                                "quantity_pct": qty, "rsi": fiat_signal.get("indicators", {}).get("rsi", 50),
+                                "vix": vix, "reason": fiat_signal["reason"], "scenario_id": sid,
+                            })
 
-            # ========== STOCKS: Real signals only ==========
+            if not fiat_traded:
+                best_pair = None
+                best_rsi = 999
+                best_cp = None
+
+                for symbol in self.fiat_strategy.fiat_symbols:
+                    df = self.fiat_strategy.fetch_yahoo_forex(symbol)
+                    if df is None or len(df) < 15: continue
+                    close_col = 'close' if 'close' in df.columns else 'Close'
+                    cp = df[close_col].iloc[-1]
+                    rsi_val = self.fiat_strategy.calculate_rsi(df)
+                    if rsi_val < best_rsi:
+                        best_rsi = rsi_val
+                        best_pair = symbol
+                        best_cp = cp
+
+                if best_pair and best_cp:
+                    for scenario in self.scenario_runner.scenarios:
+                        if scenario.get("type") != "fiat": continue
+                        sid = scenario["id"]
+                        if sid not in self.scenario_runner.results:
+                            self.scenario_runner._init_scenario(sid)
+                        entry = self.scenario_runner.results[sid]
+                        broker = entry["broker"]
+                        broker.set_fx_rate(fx_rate)
+                        if best_pair not in prices: prices[best_pair] = best_cp
+                        order = broker.place_market_order(best_pair, "buy", 0.02, prices)
+                        if order and order.status == "filled":
+                            total_trades += 1
+                            entry["trades"] += 1
+                            self.tracker.record_trade(best_pair, "BUY", order.quantity, order.filled_price_usd, f"FORCED FIAT | RSI:{best_rsi:.0f}", True, fx_rate, order.fx_fee_cad)
+                            logger.info(f"[FIAT FORCED] BUY {order.quantity:.4f} {best_pair} @ ${order.filled_price_usd:.4f} | RSI:{best_rsi:.0f}")
+                            self.letta.remember_trade({
+                                "symbol": best_pair, "action": "BUY", "price": order.filled_price_usd,
+                                "quantity_pct": 0.02, "rsi": best_rsi, "vix": vix,
+                                "reason": f"FORCED FIAT | RSI:{best_rsi:.0f}", "scenario_id": sid,
+                            })
+
+            # ========== STOCKS ==========
             stock_signal = self.find_best_stock(prices, fx_rate)
             if stock_signal:
                 for scenario in self.scenario_runner.scenarios:
@@ -332,46 +366,46 @@ class TradeLab:
         try:
             import requests
             import base64
-            
+
             token = (
-                os.environ.get("GITHUB_TOKEN") or 
+                os.environ.get("GITHUB_TOKEN") or
                 os.environ.get("github_token") or
                 os.environ.get("GH_TOKEN") or
                 ""
             ).strip()
-            
+
             if not token:
                 return
-            
+
             owner = "renzorocha1603-source"
             repo = "trade-lab"
             headers = {
                 "Authorization": f"Bearer {token}",
                 "Accept": "application/vnd.github.v3+json"
             }
-            
+
             log_files = [
-                "logs/trades.json", 
-                "logs/scenario_snapshots.json", 
-                "logs/learned_rules.json", 
+                "logs/trades.json",
+                "logs/scenario_snapshots.json",
+                "logs/learned_rules.json",
                 "logs/accuracy_log.json",
                 "logs/portfolio_snapshots.json"
             ]
-            
+
             for filepath in log_files:
                 if not os.path.exists(filepath):
                     continue
-                
+
                 with open(filepath, "r") as f:
                     content = f.read()
-                
+
                 if not content.strip():
                     continue
-                
+
                 url = f"https://api.github.com/repos/{owner}/{repo}/contents/{filepath}"
                 resp = requests.get(url, headers=headers)
                 sha = resp.json().get("sha") if resp.status_code == 200 else None
-                
+
                 data = {
                     "message": f"Auto-update {filepath} [bot]",
                     "content": base64.b64encode(content.encode()).decode(),
@@ -379,21 +413,21 @@ class TradeLab:
                 }
                 if sha:
                     data["sha"] = sha
-                
+
                 requests.put(url, headers=headers, json=data)
-            
+
             logger.info("✅ Logs pushed to GitHub via API")
-            
+
         except Exception as e:
             logger.error(f"GitHub API error: {e}")
 
     def start(self):
         print(BANNER)
-        logger.info(f"SMART TRAINING — Real signals only, no forced entries")
+        logger.info(f"FAST LEARNING — Real signals + Forced fiat, Letta evaluates every 1 hour")
         logger.info(f"Stocks: {len(self.config.data.symbols)} | Crypto: {len(self.crypto_strategy.crypto_symbols)} | Fiat: {len(self.fiat_strategy.fiat_symbols)}")
         logger.info(f"Scenarios: {len(self.scenario_runner.scenarios)} | Auto-reload: ${self.config.risk.auto_reload_amount:,.0f}")
         logger.info(f"Letta Memory: {len(self.letta.rules)} rules")
-        logger.info("24/7 Smart Training Loop starting...\n")
+        logger.info("24/7 Fast Training Loop starting...\n")
         self.run_cycle()
 
         try:
