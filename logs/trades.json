@@ -58126,5 +58126,53 @@
     "fees_cad": 0.08,
     "reason": "DIP BUY | Z:-1.37 | Size:3.3% | RSI:36",
     "ai_modified": true
+  },
+  {
+    "timestamp": "2026-07-09T15:18:49.325689",
+    "symbol": "ATOM-USD",
+    "action": "BUY",
+    "quantity": 0.0531,
+    "price_usd": 1.56,
+    "value_cad": 0.12,
+    "fx_rate": 1.42,
+    "fees_cad": 0.0,
+    "reason": "DIP BUY | Z:-2.16 | Size:5.3% | ATR:0.57%",
+    "ai_modified": true
+  },
+  {
+    "timestamp": "2026-07-09T15:18:51.177515",
+    "symbol": "WMT",
+    "action": "BUY",
+    "quantity": 0.0324,
+    "price_usd": 112.37,
+    "value_cad": 5.17,
+    "fx_rate": 1.42,
+    "fees_cad": 0.08,
+    "reason": "DIP BUY | Z:-1.35 | Size:3.2% | RSI:36",
+    "ai_modified": true
+  },
+  {
+    "timestamp": "2026-07-09T15:18:51.203306",
+    "symbol": "WMT",
+    "action": "BUY",
+    "quantity": 0.0324,
+    "price_usd": 112.37,
+    "value_cad": 5.17,
+    "fx_rate": 1.42,
+    "fees_cad": 0.08,
+    "reason": "DIP BUY | Z:-1.35 | Size:3.2% | RSI:36",
+    "ai_modified": true
+  },
+  {
+    "timestamp": "2026-07-09T15:18:51.231552",
+    "symbol": "WMT",
+    "action": "BUY",
+    "quantity": 0.0324,
+    "price_usd": 112.37,
+    "value_cad": 5.17,
+    "fx_rate": 1.42,
+    "fees_cad": 0.08,
+    "reason": "DIP BUY | Z:-1.35 | Size:3.2% | RSI:36",
+    "ai_modified": true
   }
 ]
