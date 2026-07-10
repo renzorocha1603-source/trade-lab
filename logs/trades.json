@@ -101302,5 +101302,65 @@
     "fees_cad": 0.08,
     "reason": "DIP BUY | Z:-1.36 | Size:3.3% | RSI:36",
     "ai_modified": true
+  },
+  {
+    "timestamp": "2026-07-10T12:24:28.794903",
+    "symbol": "ICP-USD",
+    "action": "BUY",
+    "quantity": 0.0326,
+    "price_usd": 2.31,
+    "value_cad": 0.11,
+    "fx_rate": 1.42,
+    "fees_cad": 0.0,
+    "reason": "DIP BUY | Z:-1.13 | Size:3.3% | ATR:1.04%",
+    "ai_modified": true
+  },
+  {
+    "timestamp": "2026-07-10T12:24:29.305757",
+    "symbol": "USDJPY=X",
+    "action": "BUY",
+    "quantity": 0.02,
+    "price_usd": 161.91,
+    "value_cad": 4.6,
+    "fx_rate": 1.42,
+    "fees_cad": 0.07,
+    "reason": "FORCED FIAT | RSI:33",
+    "ai_modified": true
+  },
+  {
+    "timestamp": "2026-07-10T12:24:29.397438",
+    "symbol": "WMT",
+    "action": "BUY",
+    "quantity": 0.0327,
+    "price_usd": 112.27,
+    "value_cad": 5.21,
+    "fx_rate": 1.42,
+    "fees_cad": 0.08,
+    "reason": "DIP BUY | Z:-1.36 | Size:3.3% | RSI:36",
+    "ai_modified": true
+  },
+  {
+    "timestamp": "2026-07-10T12:24:29.450559",
+    "symbol": "WMT",
+    "action": "BUY",
+    "quantity": 0.0327,
+    "price_usd": 112.27,
+    "value_cad": 5.21,
+    "fx_rate": 1.42,
+    "fees_cad": 0.08,
+    "reason": "DIP BUY | Z:-1.36 | Size:3.3% | RSI:36",
+    "ai_modified": true
+  },
+  {
+    "timestamp": "2026-07-10T12:24:29.510849",
+    "symbol": "WMT",
+    "action": "BUY",
+    "quantity": 0.0327,
+    "price_usd": 112.27,
+    "value_cad": 5.21,
+    "fx_rate": 1.42,
+    "fees_cad": 0.08,
+    "reason": "DIP BUY | Z:-1.36 | Size:3.3% | RSI:36",
+    "ai_modified": true
   }
 ]
