@@ -109224,19 +109224,19 @@
     "ai_modified": true
   },
   {
-    "timestamp": "2026-07-10T16:18:39.718387",
+    "timestamp": "2026-07-10T16:19:25.266048",
     "symbol": "ICP-USD",
     "action": "BUY",
-    "quantity": 0.0472,
+    "quantity": 0.0465,
     "price_usd": 2.3,
     "value_cad": 0.15,
     "fx_rate": 1.42,
     "fees_cad": 0.0,
-    "reason": "DIP BUY | Z:-1.86 | Size:4.7% | ATR:0.99%",
+    "reason": "DIP BUY | Z:-1.82 | Size:4.7% | ATR:1.01%",
     "ai_modified": true
   },
   {
-    "timestamp": "2026-07-10T16:18:40.248745",
+    "timestamp": "2026-07-10T16:19:25.742463",
     "symbol": "GBPUSD=X",
     "action": "BUY",
     "quantity": 0.02,
@@ -109248,7 +109248,7 @@
     "ai_modified": true
   },
   {
-    "timestamp": "2026-07-10T16:18:40.329928",
+    "timestamp": "2026-07-10T16:19:25.834141",
     "symbol": "ENB.TO",
     "action": "BUY",
     "quantity": 0.0336,
@@ -109260,7 +109260,7 @@
     "ai_modified": true
   },
   {
-    "timestamp": "2026-07-10T16:18:40.383461",
+    "timestamp": "2026-07-10T16:19:25.887780",
     "symbol": "ENB.TO",
     "action": "BUY",
     "quantity": 0.0336,
@@ -109272,7 +109272,7 @@
     "ai_modified": true
   },
   {
-    "timestamp": "2026-07-10T16:18:40.440903",
+    "timestamp": "2026-07-10T16:19:25.943281",
     "symbol": "ENB.TO",
     "action": "BUY",
     "quantity": 0.0336,
