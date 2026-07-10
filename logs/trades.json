@@ -115762,5 +115762,65 @@
     "fees_cad": 0.05,
     "reason": "DIP BUY | Z:-1.39 | Size:3.3% | RSI:49",
     "ai_modified": true
+  },
+  {
+    "timestamp": "2026-07-10T19:35:16.542278",
+    "symbol": "NEAR-USD",
+    "action": "BUY",
+    "quantity": 0.0648,
+    "price_usd": 1.88,
+    "value_cad": 0.17,
+    "fx_rate": 1.42,
+    "fees_cad": 0.0,
+    "reason": "DIP BUY | Z:-2.74 | Size:6.5% | ATR:1.03%",
+    "ai_modified": true
+  },
+  {
+    "timestamp": "2026-07-10T19:35:17.056580",
+    "symbol": "EURUSD=X",
+    "action": "BUY",
+    "quantity": 0.02,
+    "price_usd": 1.14,
+    "value_cad": 0.03,
+    "fx_rate": 1.42,
+    "fees_cad": 0.0,
+    "reason": "FORCED FIAT | RSI:34",
+    "ai_modified": true
+  },
+  {
+    "timestamp": "2026-07-10T19:35:17.143165",
+    "symbol": "ENB.TO",
+    "action": "BUY",
+    "quantity": 0.0329,
+    "price_usd": 77.24,
+    "value_cad": 3.61,
+    "fx_rate": 1.42,
+    "fees_cad": 0.05,
+    "reason": "DIP BUY | Z:-1.38 | Size:3.3% | RSI:49",
+    "ai_modified": true
+  },
+  {
+    "timestamp": "2026-07-10T19:35:17.193315",
+    "symbol": "ENB.TO",
+    "action": "BUY",
+    "quantity": 0.0329,
+    "price_usd": 77.24,
+    "value_cad": 3.61,
+    "fx_rate": 1.42,
+    "fees_cad": 0.05,
+    "reason": "DIP BUY | Z:-1.38 | Size:3.3% | RSI:49",
+    "ai_modified": true
+  },
+  {
+    "timestamp": "2026-07-10T19:35:17.245731",
+    "symbol": "ENB.TO",
+    "action": "BUY",
+    "quantity": 0.0329,
+    "price_usd": 77.24,
+    "value_cad": 3.61,
+    "fx_rate": 1.42,
+    "fees_cad": 0.05,
+    "reason": "DIP BUY | Z:-1.38 | Size:3.3% | RSI:49",
+    "ai_modified": true
   }
 ]
