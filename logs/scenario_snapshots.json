@@ -2,7 +2,7 @@
   {
     "scenario_id": "fiat_1k",
     "name": "Fiat $1K",
-    "timestamp": "2026-07-15T12:56:01.436712",
+    "timestamp": "2026-07-15T12:57:45.929500",
     "starting_capital": 1000,
     "equity_cad": 995.35,
     "cash_cad": 995.35,
@@ -14,7 +14,7 @@
   {
     "scenario_id": "basic_1k",
     "name": "Basic $1K",
-    "timestamp": "2026-07-15T12:56:01.436784",
+    "timestamp": "2026-07-15T12:57:45.929571",
     "starting_capital": 1000,
     "equity_cad": 996.44,
     "cash_cad": 996.44,
@@ -26,7 +26,7 @@
   {
     "scenario_id": "growth_2500",
     "name": "Growth $2.5K",
-    "timestamp": "2026-07-15T12:56:01.436794",
+    "timestamp": "2026-07-15T12:57:45.929581",
     "starting_capital": 2500,
     "equity_cad": 2496.44,
     "cash_cad": 2496.44,
@@ -38,7 +38,7 @@
   {
     "scenario_id": "pro_5k",
     "name": "Pro $5K",
-    "timestamp": "2026-07-15T12:56:01.436801",
+    "timestamp": "2026-07-15T12:57:45.929588",
     "starting_capital": 5000,
     "equity_cad": 4996.44,
     "cash_cad": 4996.44,
