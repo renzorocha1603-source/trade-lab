@@ -2,10 +2,10 @@
   {
     "scenario_id": "crypto_2500",
     "name": "Crypto $2.5K",
-    "timestamp": "2026-07-19T12:57:24.695130",
+    "timestamp": "2026-07-19T12:59:12.700728",
     "starting_capital": 2500,
-    "equity_cad": 2499.42,
-    "cash_cad": 2499.42,
+    "equity_cad": 2499.45,
+    "cash_cad": 2499.45,
     "trades": 1,
     "positions": 1,
     "monthly_deposit": 0,
@@ -14,7 +14,7 @@
   {
     "scenario_id": "fiat_1k",
     "name": "Fiat $1K",
-    "timestamp": "2026-07-19T12:57:24.695205",
+    "timestamp": "2026-07-19T12:59:12.700797",
     "starting_capital": 1000,
     "equity_cad": 999.96,
     "cash_cad": 999.96,
@@ -26,7 +26,7 @@
   {
     "scenario_id": "basic_1k",
     "name": "Basic $1K",
-    "timestamp": "2026-07-19T12:57:24.695220",
+    "timestamp": "2026-07-19T12:59:12.700809",
     "starting_capital": 1000,
     "equity_cad": 976.78,
     "cash_cad": 976.78,
@@ -38,7 +38,7 @@
   {
     "scenario_id": "growth_2500",
     "name": "Growth $2.5K",
-    "timestamp": "2026-07-19T12:57:24.695231",
+    "timestamp": "2026-07-19T12:59:12.700817",
     "starting_capital": 2500,
     "equity_cad": 2476.78,
     "cash_cad": 2476.78,
@@ -50,7 +50,7 @@
   {
     "scenario_id": "pro_5k",
     "name": "Pro $5K",
-    "timestamp": "2026-07-19T12:57:24.695242",
+    "timestamp": "2026-07-19T12:59:12.700825",
     "starting_capital": 5000,
     "equity_cad": 4976.78,
     "cash_cad": 4976.78,
