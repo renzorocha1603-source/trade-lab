@@ -2,11 +2,11 @@
   {
     "scenario_id": "crypto_2500",
     "name": "Crypto $2.5K",
-    "timestamp": "2026-07-23T10:26:14.581887",
+    "timestamp": "2026-07-23T10:31:11.027719",
     "starting_capital": 2500,
     "equity_cad": 2499.98,
     "cash_cad": 2499.98,
-    "trades": 4,
+    "trades": 5,
     "positions": 2,
     "monthly_deposit": 0,
     "risk_profile": "pennies"
@@ -14,11 +14,11 @@
   {
     "scenario_id": "fiat_1k",
     "name": "Fiat $1K",
-    "timestamp": "2026-07-23T10:26:14.581959",
+    "timestamp": "2026-07-23T10:31:11.027814",
     "starting_capital": 1000,
-    "equity_cad": 999.85,
-    "cash_cad": 999.85,
-    "trades": 4,
+    "equity_cad": 999.81,
+    "cash_cad": 999.81,
+    "trades": 5,
     "positions": 1,
     "monthly_deposit": 0,
     "risk_profile": "pennies"
@@ -26,11 +26,11 @@
   {
     "scenario_id": "basic_1k",
     "name": "Basic $1K",
-    "timestamp": "2026-07-23T10:26:14.581969",
+    "timestamp": "2026-07-23T10:31:11.027828",
     "starting_capital": 1000,
-    "equity_cad": 999.31,
-    "cash_cad": 954.91,
-    "trades": 4,
+    "equity_cad": 999.14,
+    "cash_cad": 943.63,
+    "trades": 5,
     "positions": 1,
     "monthly_deposit": 100,
     "risk_profile": "balanced"
@@ -38,11 +38,11 @@
   {
     "scenario_id": "growth_2500",
     "name": "Growth $2.5K",
-    "timestamp": "2026-07-23T10:26:14.581977",
+    "timestamp": "2026-07-23T10:31:11.027840",
     "starting_capital": 2500,
-    "equity_cad": 2499.31,
-    "cash_cad": 2454.91,
-    "trades": 4,
+    "equity_cad": 2499.14,
+    "cash_cad": 2443.63,
+    "trades": 5,
     "positions": 1,
     "monthly_deposit": 250,
     "risk_profile": "balanced"
@@ -50,11 +50,11 @@
   {
     "scenario_id": "pro_5k",
     "name": "Pro $5K",
-    "timestamp": "2026-07-23T10:26:14.581985",
+    "timestamp": "2026-07-23T10:31:11.027852",
     "starting_capital": 5000,
-    "equity_cad": 4999.31,
-    "cash_cad": 4954.91,
-    "trades": 4,
+    "equity_cad": 4999.14,
+    "cash_cad": 4943.63,
+    "trades": 5,
     "positions": 1,
     "monthly_deposit": 500,
     "risk_profile": "aggressive"
